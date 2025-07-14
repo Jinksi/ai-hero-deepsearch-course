@@ -1,5 +1,6 @@
-import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
+
+import { createEnv } from "@t3-oss/env-nextjs";
 
 export const env = createEnv({
   /**
@@ -16,6 +17,7 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string(),
   },
 
   /**
@@ -34,6 +36,7 @@ export const env = createEnv({
     AUTH_SECRET: process.env.AUTH_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
