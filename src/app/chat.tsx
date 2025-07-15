@@ -27,8 +27,6 @@ export const ChatPage = ({ userName }: ChatProps) => {
       },
     });
 
-  console.log({ messages });
-
   const isLoading = status === "streaming" || status === "submitted";
 
   return (
@@ -43,7 +41,9 @@ export const ChatPage = ({ userName }: ChatProps) => {
             return (
               <ChatMessage
                 key={index}
-                text={message.content}
+                parts={
+                  message.parts || [{ type: "text", text: message.content }]
+                }
                 role={message.role}
                 userName={userName}
               />
