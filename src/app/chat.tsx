@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { ChatMessage } from "~/components/chat-message";
 import { SignInModal } from "~/components/sign-in-modal";
 
@@ -11,8 +12,20 @@ interface ChatProps {
 }
 
 export const ChatPage = ({ userName }: ChatProps) => {
-  const { messages, input, handleInputChange, handleSubmit, status } =
-    useChat();
+  const [showSignInModal, setShowSignInModal] = useState(false);
+
+  const { messages, input, handleInputChange, handleSubmit, status, error } =
+    useChat({
+      onError: (error) => {
+        // Check if it's an authentication error
+        if (
+          error.message.includes("401") ||
+          error.message.includes("Unauthorised")
+        ) {
+          setShowSignInModal(true);
+        }
+      },
+    });
 
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -69,7 +82,10 @@ export const ChatPage = ({ userName }: ChatProps) => {
         </div>
       </div>
 
-      <SignInModal isOpen={false} onClose={() => {}} />
+      <SignInModal
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
+      />
     </>
   );
 };
