@@ -27,6 +27,8 @@ export const ChatPage = ({ userName }: ChatProps) => {
       },
     });
 
+  console.log({ messages });
+
   const isLoading = status === "streaming" || status === "submitted";
 
   return (
