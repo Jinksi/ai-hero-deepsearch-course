@@ -1,5 +1,9 @@
 import type { Message } from "ai";
-import { createDataStreamResponse, streamText } from "ai";
+import {
+  appendResponseMessages,
+  createDataStreamResponse,
+  streamText,
+} from "ai";
 import { z } from "zod";
 import { model } from "~/models";
 import { searchSerper } from "~/serper";
@@ -8,6 +12,7 @@ import {
   DAILY_RATE_LIMIT,
   canUserMakeRequest,
   recordUserRequest,
+  upsertChat,
 } from "~/server/db/queries";
 
 export const maxDuration = 60;
@@ -40,14 +45,35 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     messages: Array<Message>;
+    chatId?: string;
   };
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
-      const { messages } = body;
+      const { messages, chatId } = body;
 
       // Record the request (we'll update with token counts later if needed)
       await recordUserRequest(session.user.id);
+
+      // Generate chatId if not provided
+      const currentChatId = chatId ?? crypto.randomUUID();
+
+      // Create or update the chat with the current messages before starting the stream
+      // This protects against broken streams and ensures the user's message is saved
+      const firstMessage = messages[0];
+      const chatTitle = firstMessage?.content
+        ? typeof firstMessage.content === "string"
+          ? firstMessage.content.slice(0, 50) +
+            (firstMessage.content.length > 50 ? "..." : "")
+          : "New Chat"
+        : "New Chat";
+
+      await upsertChat({
+        userId: session.user.id,
+        chatId: currentChatId,
+        title: chatTitle,
+        messages,
+      });
 
       const result = streamText({
         model,
@@ -82,6 +108,38 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
               }));
             },
           },
+        },
+        onFinish: async ({ text, finishReason, usage, response }) => {
+          try {
+            const responseMessages = response.messages;
+
+            // Merge the original messages with the response messages
+            const updatedMessages = appendResponseMessages({
+              messages,
+              responseMessages,
+            });
+
+            // Convert messages to the format expected by the database
+            // The upsertChat function expects Message[] with content property
+            // We store parts as content (similar to how getChat converts back)
+            const messagesToSave: Message[] = updatedMessages.map((msg) => ({
+              id: msg.id,
+              role: msg.role,
+              content: (msg.parts ?? []) as any, // Store parts as content for database
+              createdAt: msg.createdAt,
+            }));
+
+            // Save the complete conversation to the database
+            await upsertChat({
+              userId: session.user.id,
+              chatId: currentChatId,
+              title: chatTitle,
+              messages: messagesToSave,
+            });
+          } catch (error) {
+            console.error("Error saving chat:", error);
+            // Don't throw here as it would break the stream response
+          }
         },
       });
 
