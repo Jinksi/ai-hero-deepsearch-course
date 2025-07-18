@@ -1,11 +1,12 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import type { Message } from "ai";
+import { ExternalLink } from "lucide-react";
 
 export type MessagePart = NonNullable<Message["parts"]>[number];
 
 interface ChatMessageProps {
-  parts: MessagePart[];
-  role: string;
+  parts: Array<MessagePart>;
+  role: "user" | "assistant" | "system" | "data";
   userName: string;
 }
 
@@ -103,6 +104,33 @@ const TextPart = ({ part }: { part: MessagePart & { type: "text" } }) => {
   );
 };
 
+const Source = ({ part }: { part: MessagePart & { type: "source" } }) => {
+  const { source } = part;
+
+  return (
+    <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-purple-400">
+        <ExternalLink className="size-4" />
+        Source
+      </div>
+      <div className="space-y-2">
+        <div className="text-sm">
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-blue-300 hover:text-blue-200 hover:underline"
+          >
+            {source.title || source.url}
+            <ExternalLink className="size-3" />
+          </a>
+        </div>
+        <div className="text-xs text-gray-400">{source.url}</div>
+      </div>
+    </div>
+  );
+};
+
 export const ChatMessage = ({ parts, role, userName }: ChatMessageProps) => {
   const isAI = role === "assistant";
 
@@ -123,6 +151,8 @@ export const ChatMessage = ({ parts, role, userName }: ChatMessageProps) => {
               return <TextPart key={index} part={part} />;
             case "tool-invocation":
               return <ToolInvocation key={index} part={part} />;
+            case "source":
+              return <Source key={index} part={part} />;
             default:
               // Ignore unsupported part types
               return null;
