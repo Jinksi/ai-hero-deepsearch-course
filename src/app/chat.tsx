@@ -4,6 +4,7 @@ import type { Message } from "ai";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { StickToBottom } from "use-stick-to-bottom";
 import { ChatMessage } from "~/components/chat-message";
 import { ErrorMessage } from "~/components/error-message";
 import { SignInModal } from "~/components/sign-in-modal";
@@ -108,50 +109,52 @@ export const ChatPage = ({
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <div
-          className="mx-auto w-full max-w-[65ch] flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-track-gray-800 scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500"
-          role="log"
-          aria-label="Chat messages"
+        <StickToBottom
+          className="mx-auto w-full max-w-[65ch] flex-1 overflow-y-auto p-4 [&>div]:scrollbar-thin [&>div]:scrollbar-track-gray-800 [&>div]:scrollbar-thumb-gray-600 [&>div]:hover:scrollbar-thumb-gray-500"
+          resize="smooth"
+          initial="smooth"
         >
-          {/* Display rate limit error */}
-          {rateLimitError && (
-            <div className="mb-4">
-              <ErrorMessage message={rateLimitError} />
-            </div>
-          )}
-
-          {/* Display general errors */}
-          {error &&
-            !rateLimitError &&
-            !error.message.includes("401") &&
-            !error.message.includes("Unauthorised") && (
+          <StickToBottom.Content className="flex flex-col gap-4">
+            {/* Display rate limit error */}
+            {rateLimitError && (
               <div className="mb-4">
-                <ErrorMessage
-                  message={
-                    error.message || "An error occurred. Please try again."
-                  }
-                />
+                <ErrorMessage message={rateLimitError} />
               </div>
             )}
 
-          {messages.map((message, index) => {
-            return (
-              <ChatMessage
-                key={index}
-                parts={
-                  message.parts || [{ type: "text", text: message.content }]
-                }
-                role={message.role}
-                userName={userName}
-              />
-            );
-          })}
-          {isLoading && (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="size-6 animate-spin text-gray-400" />
-            </div>
-          )}
-        </div>
+            {/* Display general errors */}
+            {error &&
+              !rateLimitError &&
+              !error.message.includes("401") &&
+              !error.message.includes("Unauthorised") && (
+                <div className="mb-4">
+                  <ErrorMessage
+                    message={
+                      error.message || "An error occurred. Please try again."
+                    }
+                  />
+                </div>
+              )}
+
+            {messages.map((message, index) => {
+              return (
+                <ChatMessage
+                  key={index}
+                  parts={
+                    message.parts || [{ type: "text", text: message.content }]
+                  }
+                  role={message.role}
+                  userName={userName}
+                />
+              );
+            })}
+            {isLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="size-6 animate-spin text-gray-400" />
+              </div>
+            )}
+          </StickToBottom.Content>
+        </StickToBottom>
 
         <div className="border-t border-gray-700">
           <form onSubmit={handleSubmit} className="mx-auto max-w-[65ch] p-4">
