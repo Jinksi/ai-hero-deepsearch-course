@@ -1,5 +1,6 @@
 "use client";
 
+import type { Message } from "ai";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -12,10 +13,17 @@ import { useChat } from "@ai-sdk/react";
 
 interface ChatProps {
   userName: string;
-  chatId: string | undefined;
+  chatId: string;
+  initialMessages: Message[];
+  isNewChat: boolean;
 }
 
-export const ChatPage = ({ userName, chatId }: ChatProps) => {
+export const ChatPage = ({
+  userName,
+  chatId,
+  initialMessages,
+  isNewChat,
+}: ChatProps) => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const router = useRouter();
@@ -29,8 +37,10 @@ export const ChatPage = ({ userName, chatId }: ChatProps) => {
     error,
     data,
   } = useChat({
+    initialMessages,
     body: {
       chatId,
+      isNewChat,
     },
     onError: (error) => {
       console.log("useChat error:", error); // Debug logging

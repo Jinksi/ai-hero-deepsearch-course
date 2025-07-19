@@ -45,24 +45,22 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     messages: Array<Message>;
-    chatId?: string;
+    chatId: string;
+    isNewChat: boolean;
   };
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
-      const { messages, chatId } = body;
+      const { messages, chatId, isNewChat } = body;
 
       // Record the request (we'll update with token counts later if needed)
       await recordUserRequest(session.user.id);
 
-      // Generate chatId if not provided
-      const currentChatId = chatId ?? crypto.randomUUID();
-
       // If this is a new chat, send the chatId to the frontend
-      if (!chatId) {
+      if (isNewChat) {
         dataStream.writeData({
           type: "NEW_CHAT_CREATED",
-          chatId: currentChatId,
+          chatId,
         });
       }
 
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
 
       await upsertChat({
         userId: session.user.id,
-        chatId: currentChatId,
+        chatId,
         title: chatTitle,
         messages,
       });
@@ -140,7 +138,7 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
             // Save the complete conversation to the database
             await upsertChat({
               userId: session.user.id,
-              chatId: currentChatId,
+              chatId,
               title: chatTitle,
               messages: messagesToSave,
             });
