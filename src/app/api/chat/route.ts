@@ -10,10 +10,23 @@ import {
   recordUserRequest,
   upsertChat,
 } from "~/server/db/queries";
+import {
+  checkRateLimit,
+  recordRateLimit,
+  type RateLimitConfig,
+} from "~/server/redis/rate-limit";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,
 });
+
+// Global rate limit configuration - for testing: 1 request per 5 seconds
+const globalRateLimitConfig: RateLimitConfig = {
+  maxRequests: 1,
+  maxRetries: 3,
+  windowMs: 5_000, // 5 seconds
+  keyPrefix: "global",
+};
 
 export const maxDuration = 60;
 
@@ -30,9 +43,68 @@ export async function POST(request: Request) {
     userId: session.user.id,
   });
 
-  // Check rate limiting with tracing
+  // Check global rate limit first
+  const globalRateLimitSpan = trace.span({
+    name: "global-rate-limit-check",
+    input: globalRateLimitConfig,
+  });
+
+  const globalRateLimitCheck = await checkRateLimit(globalRateLimitConfig);
+
+  globalRateLimitSpan.end({
+    output: {
+      allowed: globalRateLimitCheck.allowed,
+      remaining: globalRateLimitCheck.remaining,
+      totalHits: globalRateLimitCheck.totalHits,
+      resetTime: globalRateLimitCheck.resetTime,
+    },
+  });
+
+  if (!globalRateLimitCheck.allowed) {
+    console.log("Global rate limit exceeded, waiting for reset...");
+    const globalRateLimitWaitSpan = trace.span({
+      name: "global-rate-limit-wait",
+      input: {
+        waitTime: globalRateLimitCheck.resetTime - Date.now(),
+      },
+    });
+
+    const isAllowed = await globalRateLimitCheck.retry();
+
+    globalRateLimitWaitSpan.end({
+      output: {
+        success: isAllowed,
+      },
+    });
+
+    // If still not allowed after retries, return error
+    if (!isAllowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Global rate limit exceeded",
+          message:
+            "Too many requests across the system. Please try again later.",
+          resetTime: globalRateLimitCheck.resetTime,
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": Math.ceil(
+              (globalRateLimitCheck.resetTime - Date.now()) / 1000,
+            ).toString(),
+          },
+        },
+      );
+    }
+  }
+
+  // Record the global rate limit usage
+  await recordRateLimit(globalRateLimitConfig);
+
+  // Check user-specific rate limiting with tracing
   const rateLimitSpan = trace.span({
-    name: "rate-limit-check",
+    name: "user-rate-limit-check",
     input: {
       userId: session.user.id,
     },
