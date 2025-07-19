@@ -84,6 +84,9 @@ export async function POST(request: Request) {
       const result = streamText({
         model,
         messages,
+        experimental_telemetry: {
+          isEnabled: true,
+        },
         system: `You are a helpful AI assistant with access to web search capabilities.
 
 You should ALWAYS use the searchWeb tool to find current, accurate information to answer user questions. This allows you to provide up-to-date information and cite reliable sources.
