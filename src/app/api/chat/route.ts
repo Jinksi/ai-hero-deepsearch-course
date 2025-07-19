@@ -109,6 +109,17 @@ export async function POST(request: Request) {
         updateTitle: isNewChat, // Only update title for new chats
       });
 
+      // Get current date and time for date-aware responses
+      const currentDate = new Date().toLocaleString("en-AU", {
+        timeZone: "Australia/Sydney",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
       const result = streamText({
         model,
         messages,
@@ -121,9 +132,18 @@ export async function POST(request: Request) {
         },
         system: `You are a helpful AI assistant with access to web search and web scraping capabilities.
 
+CURRENT DATE AND TIME: ${currentDate}
+
 You MUST ALWAYS use the searchWeb tool to find current, accurate information to answer user questions. This allows you to provide up-to-date information and cite reliable sources.
 
 You MUST ALWAYS use the scrapePages tool after finding relevant search results. The searchWeb tool only provides snippets, which are insufficient for comprehensive answers. You MUST scrape the full content of relevant pages to provide detailed, accurate responses.
+
+IMPORTANT: When users ask for "up to date" information, "current" information, "latest" news, or anything time-sensitive:
+- Use the current date (${currentDate}) to determine what constitutes "up to date"
+- Prioritise sources with recent publication dates
+- When citing sources, mention the publication date if available
+- For time-sensitive queries like weather, sports scores, or breaking news, emphasise the recency of the information
+- If sources are outdated relative to the current date, acknowledge this and suggest searching for more recent information
 
 Your workflow is:
 1. ALWAYS search for relevant information using the searchWeb tool first
@@ -165,6 +185,7 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
                 title: result.title,
                 link: result.link,
                 snippet: result.snippet,
+                date: result.date,
               }));
             },
           },
