@@ -31,8 +31,29 @@ export async function POST(request: Request) {
     return new Response("Unauthorised", { status: 401 });
   }
 
-  // Check rate limiting
+  // Create a trace with session and user tracking
+  const trace = langfuse.trace({
+    name: "chat",
+    userId: session.user.id,
+  });
+
+  // Check rate limiting with tracing
+  const rateLimitSpan = trace.span({
+    name: "rate-limit-check",
+    input: {
+      userId: session.user.id,
+    },
+  });
+
   const canMakeRequest = await canUserMakeRequest(session.user.id);
+
+  rateLimitSpan.end({
+    output: {
+      canMakeRequest,
+      dailyLimit: DAILY_RATE_LIMIT,
+    },
+  });
+
   if (!canMakeRequest) {
     return new Response(
       JSON.stringify({
@@ -61,19 +82,25 @@ export async function POST(request: Request) {
   // If it's an existing chat, we'll use the provided chatId
   const currentChatId = body.chatId;
 
-  // Create a trace with session and user tracking
-  const trace = langfuse.trace({
-    sessionId: currentChatId,
-    name: "chat",
-    userId: session.user.id,
-  });
-
   return createDataStreamResponse({
     execute: async (dataStream) => {
       const { messages, chatId, isNewChat } = body;
 
-      // Record the request (we'll update with token counts later if needed)
+      // Record the request with tracing
+      const recordRequestSpan = trace.span({
+        name: "record-user-request",
+        input: {
+          userId: session.user.id,
+        },
+      });
+
       await recordUserRequest(session.user.id);
+
+      recordRequestSpan.end({
+        output: {
+          success: true,
+        },
+      });
 
       // If this is a new chat, send the chatId to the frontend
       if (isNewChat) {
@@ -101,12 +128,37 @@ export async function POST(request: Request) {
         chatTitle = "New Chat";
       }
 
+      // First upsertChat call with tracing
+      const initialUpsertSpan = trace.span({
+        name: "initial-chat-upsert",
+        input: {
+          userId: session.user.id,
+          chatId,
+          title: chatTitle,
+          messageCount: messages.length,
+          isNewChat,
+          updateTitle: isNewChat,
+        },
+      });
+
       await upsertChat({
         userId: session.user.id,
         chatId,
         title: chatTitle,
         messages,
         updateTitle: isNewChat, // Only update title for new chats
+      });
+
+      initialUpsertSpan.end({
+        output: {
+          success: true,
+          chatId,
+        },
+      });
+
+      // Update the trace sessionId now that we have the chatId
+      trace.update({
+        sessionId: chatId,
       });
 
       // Get current date and time for date-aware responses
@@ -243,13 +295,34 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
               createdAt: msg.createdAt,
             }));
 
-            // Save the complete conversation to the database
+            // Save the complete conversation to the database with tracing
+            const finalUpsertSpan = trace.span({
+              name: "final-chat-upsert",
+              input: {
+                userId: session.user.id,
+                chatId,
+                title: chatTitle,
+                messageCount: messagesToSave.length,
+                updateTitle: isNewChat,
+                finishReason,
+                usage,
+              },
+            });
+
             await upsertChat({
               userId: session.user.id,
               chatId,
               title: chatTitle,
               messages: messagesToSave,
               updateTitle: isNewChat, // Only update title for new chats
+            });
+
+            finalUpsertSpan.end({
+              output: {
+                success: true,
+                chatId,
+                totalMessages: messagesToSave.length,
+              },
             });
 
             // Flush the trace to Langfuse
