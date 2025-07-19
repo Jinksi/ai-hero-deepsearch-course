@@ -83,8 +83,15 @@ export async function upsertChat(opts: {
   chatId: string;
   title: string;
   messages: Message[];
+  updateTitle?: boolean;
 }): Promise<void> {
-  const { userId, chatId, title, messages: chatMessages } = opts;
+  const {
+    userId,
+    chatId,
+    title,
+    messages: chatMessages,
+    updateTitle = true,
+  } = opts;
 
   return await db.transaction(async (tx) => {
     // Check if chat exists and belongs to the user
@@ -103,14 +110,16 @@ export async function upsertChat(opts: {
       // Delete all existing messages for this chat
       await tx.delete(messages).where(eq(messages.chatId, chatId));
 
-      // Update chat title and updatedAt
-      await tx
-        .update(chats)
-        .set({
-          title,
-          updatedAt: new Date(),
-        })
-        .where(eq(chats.id, chatId));
+      // Update chat title and updatedAt (only if updateTitle is true)
+      const updateData: any = {
+        updatedAt: new Date(),
+      };
+
+      if (updateTitle) {
+        updateData.title = title;
+      }
+
+      await tx.update(chats).set(updateData).where(eq(chats.id, chatId));
     } else {
       // Chat doesn't exist - create new chat
       const newChat: DB.NewChat = {

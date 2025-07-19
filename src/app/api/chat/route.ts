@@ -85,19 +85,28 @@ export async function POST(request: Request) {
 
       // Create or update the chat with the current messages before starting the stream
       // This protects against broken streams and ensures the user's message is saved
-      const firstMessage = messages[0];
-      const chatTitle = firstMessage?.content
-        ? typeof firstMessage.content === "string"
-          ? firstMessage.content.slice(0, 50) +
-            (firstMessage.content.length > 50 ? "..." : "")
-          : "New Chat"
-        : "New Chat";
+      let chatTitle: string;
+
+      if (isNewChat) {
+        // For new chats, generate title from the first message
+        const firstMessage = messages[0];
+        chatTitle = firstMessage?.content
+          ? typeof firstMessage.content === "string"
+            ? firstMessage.content.slice(0, 50) +
+              (firstMessage.content.length > 50 ? "..." : "")
+            : "New Chat"
+          : "New Chat";
+      } else {
+        // For existing chats, use a placeholder title (won't be used)
+        chatTitle = "New Chat";
+      }
 
       await upsertChat({
         userId: session.user.id,
         chatId,
         title: chatTitle,
         messages,
+        updateTitle: isNewChat, // Only update title for new chats
       });
 
       const result = streamText({
@@ -210,6 +219,7 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
               chatId,
               title: chatTitle,
               messages: messagesToSave,
+              updateTitle: isNewChat, // Only update title for new chats
             });
 
             // Flush the trace to Langfuse
