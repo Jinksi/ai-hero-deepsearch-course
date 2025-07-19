@@ -3,6 +3,8 @@ import { z } from "zod";
 import { model } from "~/models";
 import { bulkCrawlWebsites } from "~/scraper";
 import { searchSerper } from "~/serper";
+import { checkRateLimit, recordRateLimit } from "~/server/redis/rate-limit";
+import { globalRateLimitConfig } from "~/config/rate-limit";
 
 export const streamFromDeepSearch = (opts: {
   messages: Message[];
@@ -120,6 +122,24 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
 };
 
 export async function askDeepSearch(messages: Message[]) {
+  // Check global rate limit before proceeding
+  const rateLimitCheck = await checkRateLimit(globalRateLimitConfig);
+
+  if (!rateLimitCheck.allowed) {
+    console.log("Rate limit exceeded in askDeepSearch, waiting for reset...");
+    const isAllowed = await rateLimitCheck.retry();
+
+    // If still not allowed after retries, throw an error
+    if (!isAllowed) {
+      throw new Error(
+        `Global rate limit exceeded. Please wait ${Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000)} seconds before trying again.`,
+      );
+    }
+  }
+
+  // Record the rate limit usage
+  await recordRateLimit(globalRateLimitConfig);
+
   const result = streamFromDeepSearch({
     messages,
     onFinish: () => {}, // just a stub

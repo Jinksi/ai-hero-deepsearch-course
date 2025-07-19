@@ -1,6 +1,7 @@
 import type { Message } from "ai";
 import { appendResponseMessages, createDataStreamResponse } from "ai";
 import { Langfuse } from "langfuse";
+import { globalRateLimitConfig } from "~/config/rate-limit";
 import { streamFromDeepSearch } from "~/deep-search";
 import { env } from "~/env";
 import { auth } from "~/server/auth";
@@ -10,23 +11,11 @@ import {
   recordUserRequest,
   upsertChat,
 } from "~/server/db/queries";
-import {
-  checkRateLimit,
-  recordRateLimit,
-  type RateLimitConfig,
-} from "~/server/redis/rate-limit";
+import { checkRateLimit, recordRateLimit } from "~/server/redis/rate-limit";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,
 });
-
-// Global rate limit configuration - for testing: 1 request per 5 seconds
-const globalRateLimitConfig: RateLimitConfig = {
-  maxRequests: 1,
-  maxRetries: 3,
-  windowMs: 5_000, // 5 seconds
-  keyPrefix: "global",
-};
 
 export const maxDuration = 60;
 
