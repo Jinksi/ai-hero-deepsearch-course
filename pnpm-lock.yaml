@@ -142,7 +142,7 @@ importers:
         specifier: ^0.2.3
         version: 0.2.3(eslint@8.57.1)
       evalite:
-        specifier: https://pkg.pr.new/mattpocock/evalite@120
+        specifier: ^0.9.1
         version: https://pkg.pr.new/mattpocock/evalite@120
       postcss:
         specifier: ^8.4.39
