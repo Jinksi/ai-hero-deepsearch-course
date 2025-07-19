@@ -8,6 +8,7 @@ import { Langfuse } from "langfuse";
 import { z } from "zod";
 import { env } from "~/env";
 import { model } from "~/models";
+import { bulkCrawlWebsites } from "~/scraper";
 import { searchSerper } from "~/serper";
 import { auth } from "~/server/auth";
 import {
@@ -109,17 +110,27 @@ export async function POST(request: Request) {
             langfuseTraceId: trace.id,
           },
         },
-        system: `You are a helpful AI assistant with access to web search capabilities.
+        system: `You are a helpful AI assistant with access to web search and web scraping capabilities.
 
-You should ALWAYS use the searchWeb tool to find current, accurate information to answer user questions. This allows you to provide up-to-date information and cite reliable sources.
+You MUST ALWAYS use the searchWeb tool to find current, accurate information to answer user questions. This allows you to provide up-to-date information and cite reliable sources.
 
-When providing information:
-1. Always search for relevant information using the searchWeb tool before responding
-2. Cite your sources using inline links in markdown format: [label](URL), where label is the title of the source and URL is the link to the source.
-3. Synthesise information from multiple sources when available
-4. If you can't find relevant information through search, acknowledge the limitation, but still return the search results.
+You MUST ALWAYS use the scrapePages tool after finding relevant search results. The searchWeb tool only provides snippets, which are insufficient for comprehensive answers. You MUST scrape the full content of relevant pages to provide detailed, accurate responses.
 
-Your goal is to provide helpful, accurate, and well-sourced responses to user queries.`,
+Your workflow is:
+1. ALWAYS search for relevant information using the searchWeb tool first
+2. ALWAYS use the scrapePages tool to extract the full content of the most relevant search results (typically 2-3 pages)
+3. ALWAYS provide comprehensive answers based on the full page content, not just search snippets
+4. ALWAYS cite your sources using inline links in markdown format: [Title of Source](URL) where "Title of Source" is the actual title of the webpage and URL is the actual link to the source.
+
+The scrapePages tool is essential because:
+- Search snippets are often incomplete or outdated
+- Full page content provides context and detailed information
+- You need complete information to give accurate, comprehensive answers
+- Users expect thorough responses based on complete source material
+
+NEVER provide answers based solely on search snippets. ALWAYS scrape the full pages and use that content for your responses.
+
+Your goal is to provide helpful, accurate, and well-sourced responses to user queries based on complete page content.`,
         maxSteps: 10,
         tools: {
           searchWeb: {
@@ -137,6 +148,39 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
                 link: result.link,
                 snippet: result.snippet,
               }));
+            },
+          },
+          scrapePages: {
+            parameters: z.object({
+              urls: z
+                .array(z.string())
+                .describe(
+                  "Array of URLs to scrape and extract full content from",
+                ),
+            }),
+            execute: async ({ urls }, { abortSignal }) => {
+              const result = await bulkCrawlWebsites({ urls });
+
+              if (result.success) {
+                return {
+                  success: true,
+                  pages: result.results.map(({ url, result: crawlResult }) => ({
+                    url,
+                    content: crawlResult.data,
+                  })),
+                };
+              } else {
+                return {
+                  success: false,
+                  error: result.error,
+                  partialResults: result.results
+                    .filter((r) => r.result.success)
+                    .map(({ url, result: crawlResult }) => ({
+                      url,
+                      content: (crawlResult as any).data,
+                    })),
+                };
+              }
             },
           },
         },
