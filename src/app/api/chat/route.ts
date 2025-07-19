@@ -58,6 +58,14 @@ export async function POST(request: Request) {
       // Generate chatId if not provided
       const currentChatId = chatId ?? crypto.randomUUID();
 
+      // If this is a new chat, send the chatId to the frontend
+      if (!chatId) {
+        dataStream.writeData({
+          type: "NEW_CHAT_CREATED",
+          chatId: currentChatId,
+        });
+      }
+
       // Create or update the chat with the current messages before starting the stream
       // This protects against broken streams and ensures the user's message is saved
       const firstMessage = messages[0];

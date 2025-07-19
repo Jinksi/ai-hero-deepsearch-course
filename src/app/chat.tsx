@@ -1,74 +1,97 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ChatMessage } from "~/components/chat-message";
 import { ErrorMessage } from "~/components/error-message";
 import { SignInModal } from "~/components/sign-in-modal";
+import { isNewChatCreated } from "~/utils";
 
 import { useChat } from "@ai-sdk/react";
 
 interface ChatProps {
   userName: string;
+  chatId: string | undefined;
 }
 
-export const ChatPage = ({ userName }: ChatProps) => {
+export const ChatPage = ({ userName, chatId }: ChatProps) => {
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const { messages, input, handleInputChange, handleSubmit, status, error } =
-    useChat({
-      onError: (error) => {
-        console.log("useChat error:", error); // Debug logging
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    status,
+    error,
+    data,
+  } = useChat({
+    body: {
+      chatId,
+    },
+    onError: (error) => {
+      console.log("useChat error:", error); // Debug logging
 
-        // Check if it's an authentication error
-        if (
-          error.message.includes("401") ||
-          error.message.includes("Unauthorised")
-        ) {
-          setShowSignInModal(true);
-          setRateLimitError(null);
-          return;
-        }
-
-        // Check if it's a rate limit error - be more comprehensive
-        const isRateLimitError =
-          error.message.includes("429") ||
-          error.message.includes("Rate limit exceeded") ||
-          error.message.includes("daily limit") ||
-          error.message.includes("Too Many Requests");
-
-        if (isRateLimitError) {
-          let errorMessage =
-            "You have exceeded your daily request limit. Please try again tomorrow.";
-
-          try {
-            // Try to parse the error response for more details
-            // The error message might contain JSON or just be the message directly
-            if (error.message.includes("{")) {
-              const jsonMatch = error.message.match(/\{.*\}/);
-              if (jsonMatch) {
-                const errorData = JSON.parse(jsonMatch[0]);
-                errorMessage = errorData.message || errorMessage;
-              }
-            } else if (error.message.includes("daily limit")) {
-              // If it's already a formatted message, use it
-              errorMessage = error.message;
-            }
-          } catch (parseError) {
-            console.log("Failed to parse error message:", parseError);
-            // Use fallback message
-          }
-
-          setRateLimitError(errorMessage);
-          setShowSignInModal(false);
-          return;
-        }
-
-        // Clear rate limit error for other types of errors
+      // Check if it's an authentication error
+      if (
+        error.message.includes("401") ||
+        error.message.includes("Unauthorised")
+      ) {
+        setShowSignInModal(true);
         setRateLimitError(null);
-      },
-    });
+        return;
+      }
+
+      // Check if it's a rate limit error - be more comprehensive
+      const isRateLimitError =
+        error.message.includes("429") ||
+        error.message.includes("Rate limit exceeded") ||
+        error.message.includes("daily limit") ||
+        error.message.includes("Too Many Requests");
+
+      if (isRateLimitError) {
+        let errorMessage =
+          "You have exceeded your daily request limit. Please try again tomorrow.";
+
+        try {
+          // Try to parse the error response for more details
+          // The error message might contain JSON or just be the message directly
+          if (error.message.includes("{")) {
+            const jsonMatch = error.message.match(/\{.*\}/);
+            if (jsonMatch) {
+              const errorData = JSON.parse(jsonMatch[0]);
+              errorMessage = errorData.message || errorMessage;
+            }
+          } else if (error.message.includes("daily limit")) {
+            // If it's already a formatted message, use it
+            errorMessage = error.message;
+          }
+        } catch (parseError) {
+          console.log("Failed to parse error message:", parseError);
+          // Use fallback message
+        }
+
+        setRateLimitError(errorMessage);
+        setShowSignInModal(false);
+        return;
+      }
+
+      // Clear rate limit error for other types of errors
+      setRateLimitError(null);
+    },
+  });
+
+  // Handle new chat creation - redirect to the new chat URL
+  useEffect(() => {
+    const lastDataItem = data?.[data.length - 1];
+
+    if (lastDataItem && isNewChatCreated(lastDataItem)) {
+      router.push(`?id=${lastDataItem.chatId}`);
+    }
+  }, [data, router]);
 
   const isLoading = status === "streaming" || status === "submitted";
 
