@@ -4,7 +4,9 @@ import {
   createDataStreamResponse,
   streamText,
 } from "ai";
+import { Langfuse } from "langfuse";
 import { z } from "zod";
+import { env } from "~/env";
 import { model } from "~/models";
 import { searchSerper } from "~/serper";
 import { auth } from "~/server/auth";
@@ -14,6 +16,10 @@ import {
   recordUserRequest,
   upsertChat,
 } from "~/server/db/queries";
+
+const langfuse = new Langfuse({
+  environment: env.NODE_ENV,
+});
 
 export const maxDuration = 60;
 
@@ -48,6 +54,18 @@ export async function POST(request: Request) {
     chatId: string;
     isNewChat: boolean;
   };
+
+  // Determine the actual chat ID to use for the session
+  // If it's a new chat, we'll use the generated chatId from the request
+  // If it's an existing chat, we'll use the provided chatId
+  const currentChatId = body.chatId;
+
+  // Create a trace with session and user tracking
+  const trace = langfuse.trace({
+    sessionId: currentChatId,
+    name: "chat",
+    userId: session.user.id,
+  });
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
@@ -86,6 +104,10 @@ export async function POST(request: Request) {
         messages,
         experimental_telemetry: {
           isEnabled: true,
+          functionId: `agent`,
+          metadata: {
+            langfuseTraceId: trace.id,
+          },
         },
         system: `You are a helpful AI assistant with access to web search capabilities.
 
@@ -145,6 +167,9 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
               title: chatTitle,
               messages: messagesToSave,
             });
+
+            // Flush the trace to Langfuse
+            await langfuse.flushAsync();
           } catch (error) {
             console.error("Error saving chat:", error);
             // Don't throw here as it would break the stream response
