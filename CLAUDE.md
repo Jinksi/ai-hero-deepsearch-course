@@ -16,6 +16,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm run format:check` - Check code formatting
 - `pnpm run eval` - Run evalite evaluations in watch mode
 
+## Evaluation Commands
+
+- `pnpm evalite` - Run evaluations with dev dataset (2 test cases)
+- `EVAL_DATASET=ci pnpm evalite` - Run evaluations with CI dataset (dev + ci = 4 test cases)
+- `EVAL_DATASET=regression pnpm evalite` - Run evaluations with regression dataset (dev + ci + regression = 5 test cases)
+
 ## Database Commands
 
 - `./start-database.sh` - Start PostgreSQL database with Docker
@@ -80,3 +86,7 @@ This is an AI-powered deep search application built with Next.js and the Vercel 
 - **Utils**: `src/utils.ts` - General utilities
 - **Rate Limiting**: `src/config/rate-limit.ts` and `src/server/redis/rate-limit.ts`
 - **Environment**: `src/env.js` - Type-safe environment validation
+- **Evaluation Datasets**: `evals/` directory contains three dataset files:
+  - `evals/dev.ts` - Development dataset (2 test cases for local testing)
+  - `evals/ci.ts` - CI dataset (2 test cases for pre-deployment testing)
+  - `evals/regression.ts` - Regression dataset (1 test case for periodic testing)
