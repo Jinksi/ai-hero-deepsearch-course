@@ -27,6 +27,7 @@ export const env = createEnv({
     JINA_API_KEY: z.string(),
     OPENAI_API_KEY: z.string(),
     EVAL_DATASET: z.enum(["dev", "ci", "regression"]).default("dev"),
+    SEARCH_RESULTS_COUNT: z.coerce.number().default(10),
   },
 
   /**
@@ -55,6 +56,7 @@ export const env = createEnv({
     JINA_API_KEY: process.env.JINA_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     EVAL_DATASET: process.env.EVAL_DATASET,
+    SEARCH_RESULTS_COUNT: process.env.SEARCH_RESULTS_COUNT,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -79,6 +79,20 @@ This is an AI-powered deep search application built with Next.js and the Vercel 
 3. Configure `.env` file (validate changes in `src/env.js`)
 4. Run `pnpm run db:push` after schema changes
 
+## Configuration
+
+### Search Results Count
+
+The number of search results returned by the web search tool can be configured via the `SEARCH_RESULTS_COUNT` environment variable in your `.env` file:
+
+```
+SEARCH_RESULTS_COUNT=10
+```
+
+- **Default**: 10 results
+- **Location**: Configured in `src/env.js` and used in `src/deep-search.ts`
+- **Purpose**: Controls how many search results are fetched from Serper API during web searches
+
 ## Important File Locations
 
 - **Models**: `src/models.ts` - AI model configurations

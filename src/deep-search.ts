@@ -1,5 +1,6 @@
 import { streamText, type Message, type TelemetrySettings } from "ai";
 import { z } from "zod";
+import { env } from "~/env";
 import { model } from "~/models";
 import { bulkCrawlWebsites } from "~/scraper";
 import { searchSerper } from "~/serper";
@@ -71,7 +72,7 @@ Your goal is to provide helpful, accurate, and well-sourced responses to user qu
         }),
         execute: async ({ query }, { abortSignal }) => {
           const results = await searchSerper(
-            { q: query, num: 10 },
+            { q: query, num: env.SEARCH_RESULTS_COUNT },
             abortSignal,
           );
 
