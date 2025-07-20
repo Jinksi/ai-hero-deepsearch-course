@@ -3,33 +3,23 @@ import { generateObject } from "ai";
 import { evalite } from "evalite";
 import { createScorer } from "evalite";
 import { z } from "zod";
-import { globalRateLimitConfig } from "~/config/rate-limit";
 import { askDeepSearch } from "~/deep-search";
 import { factualityModel } from "~/models";
-import { checkRateLimit, recordRateLimit } from "~/server/redis/rate-limit";
 
 export const checkFactuality = async (opts: {
   question: string;
   groundTruth: string;
   submission: string;
 }) => {
-  // Check global rate limit before proceeding
-  const rateLimitCheck = await checkRateLimit(globalRateLimitConfig);
-
-  if (!rateLimitCheck.allowed) {
-    console.log("Rate limit exceeded in checkFactuality, waiting for reset...");
-    const isAllowed = await rateLimitCheck.retry();
-
-    // If still not allowed after retries, throw an error
-    if (!isAllowed) {
-      throw new Error(
-        `Global rate limit exceeded. Please wait ${Math.ceil((rateLimitCheck.resetTime - Date.now()) / 1000)} seconds before trying again.`,
-      );
-    }
-  }
-
-  // Record the rate limit usage
-  await recordRateLimit(globalRateLimitConfig);
+  const currentDate = new Date().toLocaleString("en-AU", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
   const { object } = await generateObject({
     model: factualityModel,
@@ -47,6 +37,8 @@ export const checkFactuality = async (opts: {
       [Expert]: ${opts.groundTruth}
       ************
       [Submission]: ${opts.submission}
+      ************
+      [Current Date]: ${currentDate}
       ************
       [END DATA]
 
@@ -131,6 +123,44 @@ New APIs: Introduction of new APIs. Next.js 15
 Performance enhancements: Next.js 15 includes performance boosts. Introduction to Next.js 15: What's New and Improved - DEV Community
 Improved Debugging: Updates for debugging errors with a redesigned error UI and improved stack traces. Next.js 15.2
 `,
+      },
+      {
+        input: [
+          {
+            id: "3",
+            role: "user",
+            content:
+              "What is the latest Ableton Move stable software version, and what changes are included in the latest version?",
+          },
+        ],
+        expected: `The latest Ableton Move stable software version is 1.5.1.
+Released on June 19, 2025.
+It includes a bugfix:
+Drum Sampler's Pitch > Env parameter is now on by default when loading or recording a sample.`,
+      },
+      {
+        input: [
+          {
+            id: "4",
+            role: "user",
+            content:
+              "What is Rival Console's latest album, and what DAW was used to create it?",
+          },
+        ],
+        expected:
+          "Rival Console's latest album is 'Landscape from Memory'. It was created using the Ableton Live DAW.",
+      },
+      {
+        input: [
+          {
+            id: "5",
+            role: "user",
+            content:
+              "Is there a desktop-unit hardware version of the Take-5, what is it called and does it include tape delay?",
+          },
+        ],
+        expected:
+          "There is a desktop module version of the Take-5. It does include tape delay.",
       },
     ];
   },
