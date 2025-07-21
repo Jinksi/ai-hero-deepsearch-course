@@ -15,14 +15,8 @@ type ScrapeResult = {
   result: string;
 };
 
-const toQueryResult = (
-  query: QueryResultSearchResult,
-) =>
-  [
-    `### ${query.date} - ${query.title}`,
-    query.url,
-    query.snippet,
-  ].join("\n\n");
+const toQueryResult = (query: QueryResultSearchResult) =>
+  [`### ${query.date} - ${query.title}`, query.url, query.snippet].join("\n\n");
 
 export class SystemContext {
   /**
@@ -40,8 +34,21 @@ export class SystemContext {
    */
   private scrapeHistory: ScrapeResult[] = [];
 
+  /**
+   * The initial question that the user asked
+   */
+  private initialQuestion: string;
+
+  constructor(initialQuestion: string) {
+    this.initialQuestion = initialQuestion;
+  }
+
   shouldStop() {
     return this.step >= 10;
+  }
+
+  incrementStep() {
+    this.step++;
   }
 
   reportQueries(queries: QueryResult[]) {
@@ -74,5 +81,9 @@ export class SystemContext {
         ].join("\n\n"),
       )
       .join("\n\n");
+  }
+
+  getInitialQuestion(): string {
+    return this.initialQuestion;
   }
 }
