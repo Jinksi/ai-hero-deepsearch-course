@@ -61,6 +61,7 @@ This is an AI-powered deep search application built with Next.js and the Vercel 
 - Web search and content scraping tools
 - Rate limiting by IP and user
 - Telemetry with OpenTelemetry and Langfuse
+- Frontend error monitoring with Sentry
 - Evaluation system using evalite
 
 ## Code Style Guidelines
@@ -100,6 +101,7 @@ SEARCH_RESULTS_COUNT=10
 - **Utils**: `src/utils.ts` - General utilities
 - **Rate Limiting**: `src/config/rate-limit.ts` and `src/server/redis/rate-limit.ts`
 - **Environment**: `src/env.js` - Type-safe environment validation
+- **Error Monitoring**: Sentry configuration in `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/app/global-error.tsx`, and `src/instrumentation.ts`
 - **Evaluation Datasets**: `evals/` directory contains three dataset files:
   - `evals/dev.ts` - Development dataset (2 test cases for local testing)
   - `evals/ci.ts` - CI dataset (2 test cases for pre-deployment testing)
