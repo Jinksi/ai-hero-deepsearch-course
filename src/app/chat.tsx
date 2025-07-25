@@ -8,6 +8,7 @@ import { StickToBottom } from "use-stick-to-bottom";
 import { ChatMessage } from "~/components/chat-message";
 import { ErrorMessage } from "~/components/error-message";
 import { SignInModal } from "~/components/sign-in-modal";
+import type { OurMessageAnnotation } from "~/deep-search";
 import { isNewChatCreated } from "~/utils";
 
 import { useChat } from "@ai-sdk/react";
@@ -145,6 +146,7 @@ export const ChatPage = ({
                   }
                   role={message.role}
                   userName={userName}
+                  annotations={(message.annotations ?? []) as unknown as OurMessageAnnotation[]}
                 />
               );
             })}

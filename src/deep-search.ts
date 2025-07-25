@@ -13,29 +13,51 @@ import { SystemContext } from "~/system-context";
 // Action types for structured LLM outputs
 export interface SearchAction {
   type: "search";
+  title: string;
+  reasoning: string;
   query: string;
 }
 
 export interface ScrapeAction {
   type: "scrape";
+  title: string;
+  reasoning: string;
   urls: string[];
 }
 
 export interface AnswerAction {
   type: "answer";
+  title: string;
+  reasoning: string;
 }
 
 export type Action = SearchAction | ScrapeAction | AnswerAction;
 
+// Message annotation type for progress indicators
+export type OurMessageAnnotation = {
+  type: "NEW_ACTION";
+  action: Action;
+};
+
 // Return type for getNextAction that includes optional fields
 export interface ActionResult {
   type: "search" | "scrape" | "answer";
+  title: string;
+  reasoning: string;
   query?: string;
   urls?: string[];
 }
 
 // Schema for structured outputs - using single object with optional fields instead of z.union
 export const actionSchema = z.object({
+  title: z
+    .string()
+    .describe(
+      "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
+    ),
+  reasoning: z
+    .string()
+    .describe("The reason you chose this step."),
   type: z.enum(["search", "scrape", "answer"]).describe(
     `The type of action to take.
       - 'search': Search the web for more information.
@@ -56,6 +78,7 @@ export async function streamFromDeepSearch(opts: {
   messages: Message[];
   onFinish: Parameters<typeof streamText>[0]["onFinish"];
   telemetry: TelemetrySettings;
+  writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
 }): Promise<StreamTextResult<{}, string>> {
   console.log(
     "🌟 streamFromDeepSearch called with",
@@ -74,7 +97,9 @@ export async function streamFromDeepSearch(opts: {
 
   // Run the agent loop and return the streaming result
   console.log("🎬 Starting agent loop...");
-  const result = await runAgentLoop(userQuestion);
+  const result = await runAgentLoop(userQuestion, {
+    writeMessageAnnotation: opts.writeMessageAnnotation ?? (() => {}),
+  });
   console.log("✨ Agent loop completed, returning streaming result");
 
   // Note: onFinish callback handling will be implemented later
@@ -90,6 +115,7 @@ export async function askDeepSearch(messages: Message[]) {
     telemetry: {
       isEnabled: false,
     },
+    writeMessageAnnotation: () => {}, // no-op for evaluations
   });
 
   console.log("📋 streamFromDeepSearch completed, consuming stream...");

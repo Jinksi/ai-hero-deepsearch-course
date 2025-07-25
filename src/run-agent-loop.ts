@@ -1,5 +1,5 @@
 import type { StreamTextResult } from "ai";
-import { getNextAction } from "~/deep-search";
+import { getNextAction, type OurMessageAnnotation, type Action } from "~/deep-search";
 import { env } from "~/env";
 import { bulkCrawlWebsites } from "~/scraper";
 import { searchSerper } from "~/serper";
@@ -51,6 +51,9 @@ export const scrapeUrl = async (urls: string[]): Promise<any> => {
 // Main agent loop implementation
 export const runAgentLoop = async (
   initialQuestion: string,
+  opts: {
+    writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
+  },
 ): Promise<StreamTextResult<{}, string>> => {
   console.log("🚀 Starting agent loop for question:", initialQuestion);
 
@@ -65,6 +68,12 @@ export const runAgentLoop = async (
     // We choose the next action based on the state of our system
     const nextAction = await getNextAction(ctx);
     console.log("🎯 Next action chosen:", nextAction);
+
+    // Send progress annotation to the UI
+    opts.writeMessageAnnotation({
+      type: "NEW_ACTION",
+      action: nextAction as Action,
+    });
 
     // We execute the action and update the state of our system
     if (nextAction.type === "search" && nextAction.query) {

@@ -2,7 +2,7 @@ import type { Message } from "ai";
 import { appendResponseMessages, createDataStreamResponse } from "ai";
 import { Langfuse } from "langfuse";
 import { globalRateLimitConfig } from "~/config/rate-limit";
-import { streamFromDeepSearch } from "~/deep-search";
+import { streamFromDeepSearch, type OurMessageAnnotation } from "~/deep-search";
 import { env } from "~/env";
 import { auth } from "~/server/auth";
 import {
@@ -223,6 +223,9 @@ export async function POST(request: Request) {
           metadata: {
             langfuseTraceId: trace.id,
           },
+        },
+        writeMessageAnnotation: (annotation) => {
+          dataStream.writeMessageAnnotation(annotation satisfies OurMessageAnnotation as any);
         },
         onFinish: async ({ text, finishReason, usage, response }) => {
           try {
