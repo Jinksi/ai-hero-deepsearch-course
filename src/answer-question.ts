@@ -1,11 +1,13 @@
-import { generateText } from "ai";
+import { streamText, type StreamTextResult } from "ai";
 import { model } from "~/models";
 import { SystemContext } from "~/system-context";
 
-export const answerQuestion = async (
+export const answerQuestion = (
   context: SystemContext,
   options: { isFinal: boolean },
-): Promise<string> => {
+): StreamTextResult<{}, string> => {
+  console.log("📝 answerQuestion called, isFinal:", options.isFinal);
+
   // Get current date and time for date-aware responses
   const currentDate = new Date().toLocaleString("en-AU", {
     timeZone: "Australia/Sydney",
@@ -49,11 +51,12 @@ ${context.getScrapeHistory()}
 
 Please provide your answer now:`;
 
-  const result = await generateText({
+  console.log("🎨 Starting streamText for answer generation");
+
+  return streamText({
     model,
     system: systemPrompt,
     prompt: prompt,
+    experimental_telemetry: { isEnabled: false },
   });
-
-  return result.text;
 };

@@ -193,6 +193,7 @@ export const checkAnswerRelevancy = async (opts: {
         .array(z.string())
         .describe("Array of statements from the text"),
     }),
+    experimental_telemetry: { isEnabled: false },
   });
 
   // Handle empty or single-statement cases
@@ -218,6 +219,7 @@ export const checkAnswerRelevancy = async (opts: {
         )
         .describe("Array of verdicts for each statement"),
     }),
+    experimental_telemetry: { isEnabled: false },
   });
 
   // Step 3: Calculate the average score

@@ -8,7 +8,6 @@ import { devData } from "./dev";
 import { Factuality } from "./factuality-scorer";
 import { regressionData } from "./regression";
 
-
 const data = [...devData];
 
 // If CI, add the CI data

@@ -215,7 +215,7 @@ export async function POST(request: Request) {
         sessionId: chatId,
       });
 
-      const result = streamFromDeepSearch({
+      const result = await streamFromDeepSearch({
         messages,
         telemetry: {
           isEnabled: true,

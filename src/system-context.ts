@@ -22,7 +22,7 @@ export class SystemContext {
   /**
    * The current step in the loop
    */
-  private step = 0;
+  public step = 0;
 
   /**
    * The history of all queries searched

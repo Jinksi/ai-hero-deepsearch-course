@@ -54,6 +54,7 @@ export const checkFactuality = async (opts: {
         .string()
         .describe("Why you chose this answer. Be very detailed."),
     }),
+    experimental_telemetry: { isEnabled: false },
   });
 
   /**
