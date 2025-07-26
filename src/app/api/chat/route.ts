@@ -134,7 +134,6 @@ export async function POST(request: Request) {
   // Determine the actual chat ID to use for the session
   // If it's a new chat, we'll use the generated chatId from the request
   // If it's an existing chat, we'll use the provided chatId
-  const currentChatId = body.chatId;
 
   return createDataStreamResponse({
     execute: async (dataStream) => {
@@ -227,7 +226,7 @@ export async function POST(request: Request) {
         writeMessageAnnotation: (annotation) => {
           dataStream.writeMessageAnnotation(annotation satisfies OurMessageAnnotation as any);
         },
-        onFinish: async ({ text, finishReason, usage, response }) => {
+        onFinish: async ({ finishReason, usage, response }) => {
           try {
             const responseMessages = response.messages;
 
