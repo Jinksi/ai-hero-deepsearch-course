@@ -48,7 +48,7 @@ export interface ActionResult {
   urls?: string[];
 }
 
-// Schema for structured outputs - using single object with optional fields instead of z.union
+// Schema for structured outputs - using single object with conditional validation
 export const actionSchema = z.object({
   title: z
     .string()
@@ -72,6 +72,16 @@ export const actionSchema = z.object({
     .array(z.string())
     .describe("The URLs to scrape. Required if type is 'scrape'.")
     .optional(),
+}).refine((data) => {
+  if (data.type === "search" && !data.query) {
+    return false;
+  }
+  if (data.type === "scrape" && (!data.urls || data.urls.length === 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "query is required for search actions, urls are required for scrape actions"
 });
 
 export async function streamFromDeepSearch(opts: {
