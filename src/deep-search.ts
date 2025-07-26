@@ -136,13 +136,16 @@ export async function askDeepSearch(messages: Message[]) {
   try {
     await result.consumeStream({
       onError: (error) => {
-        console.log("⚠️ Stream consumption error:", error);
+        console.error("⚠️ Stream consumption error:", error);
+        throw error; // Re-throw to handle properly
       },
     });
     console.log("🔄 Stream consumed successfully");
   } catch (error) {
-    console.log("❌ Stream consumption failed:", error);
-    // Continue anyway - the text promise might still resolve
+    console.error("❌ Stream consumption failed:", error);
+    // Re-throw the error instead of silently continuing
+    // This ensures caller can handle stream failures appropriately
+    throw new Error(`Stream consumption failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const text = await result.text;
