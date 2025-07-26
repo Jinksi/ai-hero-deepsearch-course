@@ -1,5 +1,5 @@
 import {
-  streamText,
+  type streamText,
   generateObject,
   type Message,
   type TelemetrySettings,
@@ -8,7 +8,7 @@ import {
 import { z } from "zod";
 import { model } from "~/models";
 import { runAgentLoop } from "~/run-agent-loop";
-import { SystemContext } from "~/system-context";
+import type { SystemContext } from "~/system-context";
 import { env } from "~/env";
 
 // Action types for structured LLM outputs
@@ -90,7 +90,7 @@ export async function streamFromDeepSearch(opts: {
   onFinish: Parameters<typeof streamText>[0]["onFinish"];
   telemetry: TelemetrySettings;
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
-}): Promise<StreamTextResult<{}, string>> {
+}): Promise<StreamTextResult<Record<string, never>, string>> {
   console.log(
     "🌟 streamFromDeepSearch called with",
     opts.messages.length,

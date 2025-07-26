@@ -1,11 +1,11 @@
 import { streamText, type StreamTextResult } from "ai";
 import { model } from "~/models";
-import { SystemContext } from "~/system-context";
+import type { SystemContext } from "~/system-context";
 
 export const answerQuestion = (
   context: SystemContext,
   options: { isFinal: boolean },
-): StreamTextResult<{}, string> => {
+): StreamTextResult<Record<string, never>, string> => {
   console.log("📝 answerQuestion called, isFinal:", options.isFinal);
 
   // Get current date and time for date-aware responses

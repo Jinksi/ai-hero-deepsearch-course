@@ -7,8 +7,34 @@ import { SystemContext } from "~/system-context";
 
 import { answerQuestion } from "./answer-question";
 
+// Types for search and scrape results
+interface SearchResult {
+  title: string;
+  link: string;
+  snippet: string;
+  date: string | undefined;
+}
+
+interface ScrapePageResult {
+  url: string;
+  content: string;
+}
+
+interface ScrapeSuccessResult {
+  success: true;
+  pages: ScrapePageResult[];
+}
+
+interface ScrapeErrorResult {
+  success: false;
+  error: string;
+  partialResults: ScrapePageResult[];
+}
+
+type ScrapeResult = ScrapeSuccessResult | ScrapeErrorResult;
+
 // Copied and adapted from deep-search.ts searchWeb tool
-export const searchWeb = async (query: string): Promise<any> => {
+export const searchWeb = async (query: string): Promise<SearchResult[]> => {
   const results = await searchSerper(
     { q: query, num: env.SEARCH_RESULTS_COUNT },
     undefined, // abortSignal
@@ -23,7 +49,7 @@ export const searchWeb = async (query: string): Promise<any> => {
 };
 
 // Copied and adapted from deep-search.ts scrapePages tool
-export const scrapeUrl = async (urls: string[]): Promise<any> => {
+export const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
   const result = await bulkCrawlWebsites({ urls });
 
   if (result.success) {
@@ -54,7 +80,7 @@ export const runAgentLoop = async (
   opts: {
     writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
   },
-): Promise<StreamTextResult<{}, string>> => {
+): Promise<StreamTextResult<Record<string, never>, string>> => {
   console.log("🚀 Starting agent loop for question:", initialQuestion);
 
   // A persistent container for the state of our system
@@ -83,8 +109,8 @@ export const runAgentLoop = async (
       ctx.reportQueries([
         {
           query: nextAction.query,
-          results: result.map((r: any) => ({
-            date: r.date,
+          results: result.map((r) => ({
+            date: r.date ?? "Unknown date",
             title: r.title,
             url: r.link,
             snippet: r.snippet,
@@ -97,7 +123,7 @@ export const runAgentLoop = async (
       if (result.success) {
         console.log(`✅ Scrape successful for ${result.pages.length} pages`);
         ctx.reportScrapes(
-          result.pages.map((page: any) => ({
+          result.pages.map((page) => ({
             url: page.url,
             result: page.content,
           })),
@@ -107,7 +133,7 @@ export const runAgentLoop = async (
           `⚠️ Scrape partially successful for ${result.partialResults.length} pages`,
         );
         ctx.reportScrapes(
-          result.partialResults.map((page: any) => ({
+          result.partialResults.map((page) => ({
             url: page.url,
             result: page.content,
           })),
