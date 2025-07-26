@@ -9,6 +9,7 @@ import { z } from "zod";
 import { model } from "~/models";
 import { runAgentLoop } from "~/run-agent-loop";
 import { SystemContext } from "~/system-context";
+import { env } from "~/env";
 
 // Action types for structured LLM outputs
 export interface SearchAction {
@@ -160,8 +161,8 @@ export const getNextAction = async (
   console.log("🧠 getNextAction called, step:", context.step);
 
   // Get current date and time for date-aware responses
-  const currentDate = new Date().toLocaleString("en-AU", {
-    timeZone: "Australia/Sydney",
+  const currentDate = new Date().toLocaleString(env.DEFAULT_LOCALE, {
+    timeZone: env.DEFAULT_TIMEZONE,
     year: "numeric",
     month: "long",
     day: "numeric",
