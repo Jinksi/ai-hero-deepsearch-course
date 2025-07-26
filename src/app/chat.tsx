@@ -142,7 +142,10 @@ export const ChatPage = ({
                 <ChatMessage
                   key={index}
                   parts={
-                    message.parts || [{ type: "text", text: message.content }]
+                    // Use message.parts if available, otherwise create a fallback text part from content
+                    // This handles cases where existing chats may have content but no parts structure
+                    message.parts || 
+                    [{ type: "text", text: typeof message.content === "string" ? message.content : "" }]
                   }
                   role={message.role}
                   userName={userName}

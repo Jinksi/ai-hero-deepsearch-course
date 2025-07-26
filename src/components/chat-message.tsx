@@ -178,6 +178,9 @@ const TextPart = ({ part }: { part: MessagePart & { type: "text" } }) => {
 export const ChatMessage = ({ parts, role, userName, annotations }: ChatMessageProps) => {
   const isAI = role === "assistant";
 
+  // Defensive check: ensure parts is always an array
+  const safeParts = Array.isArray(parts) ? parts : [];
+
   return (
     <div className="mb-6">
       <div
@@ -191,7 +194,7 @@ export const ChatMessage = ({ parts, role, userName, annotations }: ChatMessageP
 
         {isAI && <ReasoningSteps annotations={annotations} />}
 
-        {parts.map((part, index) => {
+        {safeParts.map((part, index) => {
           switch (part.type) {
             case "text":
               return <TextPart key={index} part={part} />;
