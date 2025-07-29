@@ -136,6 +136,7 @@ export async function upsertChat(opts: {
         chatId,
         role: msg.role,
         parts: msg.content as any, // JSON field for message parts
+        annotations: (msg as any).annotations || null, // JSON field for message annotations
         order: index,
       }));
       await tx.insert(messages).values(newMessages);
@@ -179,6 +180,7 @@ export async function getChat(
     id: msg.id,
     role: msg.role as "user" | "assistant" | "system",
     content: msg.parts as any, // JSON field converted back to content
+    annotations: msg.annotations as any, // JSON field converted back to annotations
     createdAt: msg.createdAt,
   }));
 

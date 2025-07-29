@@ -1,4 +1,4 @@
-import type { StreamTextResult, Message } from "ai";
+import type { StreamTextResult, Message, streamText } from "ai";
 import {
   getNextAction,
   type OurMessageAnnotation,
@@ -83,6 +83,7 @@ export const runAgentLoop = async (opts: {
   messages: Message[];
   writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
   langfuseTraceId?: string;
+  onFinish: Parameters<typeof streamText>[0]["onFinish"];
 }): Promise<StreamTextResult<Record<string, never>, string>> => {
   console.log("🚀 Starting agent loop for messages:", opts.messages.length);
 
@@ -152,6 +153,7 @@ export const runAgentLoop = async (opts: {
       return answerQuestion(ctx, {
         isFinal: false,
         langfuseTraceId: opts.langfuseTraceId,
+        onFinish: opts.onFinish,
       });
     }
 
@@ -165,5 +167,6 @@ export const runAgentLoop = async (opts: {
   return answerQuestion(ctx, {
     isFinal: true,
     langfuseTraceId: opts.langfuseTraceId,
+    onFinish: opts.onFinish,
   });
 };

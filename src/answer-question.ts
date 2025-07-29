@@ -4,7 +4,11 @@ import type { SystemContext } from "~/system-context";
 
 export const answerQuestion = (
   context: SystemContext,
-  options: { isFinal: boolean; langfuseTraceId?: string },
+  options: {
+    isFinal: boolean;
+    langfuseTraceId?: string;
+    onFinish: Parameters<typeof streamText>[0]["onFinish"];
+  },
 ): StreamTextResult<Record<string, never>, string> => {
   console.log("📝 answerQuestion called, isFinal:", options.isFinal);
 
@@ -57,6 +61,7 @@ Please provide your answer now:`;
     model,
     system: systemPrompt,
     prompt: prompt,
+    onFinish: options.onFinish,
     experimental_telemetry: options.langfuseTraceId
       ? {
           isEnabled: true,

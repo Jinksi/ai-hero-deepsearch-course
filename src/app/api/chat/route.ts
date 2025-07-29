@@ -142,10 +142,16 @@ export async function POST(request: Request) {
         sessionId: chatId,
       });
 
+      // Collect annotations in memory to save to the database later
+      const annotations: OurMessageAnnotation[] = [];
+
       const result = await streamFromDeepSearch({
         messages,
         langfuseTraceId: trace.id,
         writeMessageAnnotation: (annotation) => {
+          // Save the annotation in-memory
+          annotations.push(annotation);
+          // Send it to the client
           dataStream.writeMessageAnnotation(
             annotation satisfies OurMessageAnnotation as any,
           );
@@ -169,6 +175,12 @@ export async function POST(request: Request) {
               content: (msg.parts ?? []) as any, // Store parts as content for database
               createdAt: msg.createdAt,
             }));
+
+            // Add the annotations to the last message (assistant's response)
+            const lastMessage = messagesToSave[messagesToSave.length - 1];
+            if (lastMessage && annotations.length > 0) {
+              (lastMessage as any).annotations = annotations;
+            }
 
             // Save the complete conversation to the database
             await upsertChat({

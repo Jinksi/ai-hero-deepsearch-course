@@ -106,10 +106,10 @@ export async function streamFromDeepSearch(opts: {
     messages: opts.messages,
     writeMessageAnnotation: opts.writeMessageAnnotation ?? (() => {}),
     langfuseTraceId: opts.langfuseTraceId,
+    onFinish: opts.onFinish,
   });
   console.log("✨ Agent loop completed, returning streaming result");
 
-  // Note: onFinish callback handling will be implemented later
   return result;
 }
 
