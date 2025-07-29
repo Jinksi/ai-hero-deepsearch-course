@@ -12,6 +12,7 @@ import {
   upsertChat,
 } from "~/server/db/queries";
 import { checkRateLimit, recordRateLimit } from "~/server/redis/rate-limit";
+import { generateChatTitle } from "~/utils";
 
 const langfuse = new Langfuse({
   environment: env.NODE_ENV,
@@ -110,32 +111,32 @@ export async function POST(request: Request) {
         });
       }
 
-      // Create or update the chat with the current messages before starting the stream
-      // This protects against broken streams and ensures the user's message is saved
-      let chatTitle: string;
-
+      // Start generating chat title in parallel for new chats
+      let titlePromise: Promise<string>;
       if (isNewChat) {
-        // For new chats, generate title from the first message
-        const firstMessage = messages[0];
-        chatTitle = firstMessage?.content
-          ? typeof firstMessage.content === "string"
-            ? firstMessage.content.slice(0, 50) +
-              (firstMessage.content.length > 50 ? "..." : "")
-            : "New Chat"
-          : "New Chat";
+        titlePromise = generateChatTitle(messages);
       } else {
-        // For existing chats, use a placeholder title (won't be used)
-        chatTitle = "New Chat";
+        titlePromise = Promise.resolve("");
       }
 
-      // First upsertChat call
-      await upsertChat({
-        userId: session.user.id,
-        chatId,
-        title: chatTitle,
-        messages,
-        updateTitle: isNewChat, // Only update title for new chats
-      });
+      // Create or update the chat with the current messages before starting the stream
+      // This protects against broken streams and ensures the user's message is saved
+      if (isNewChat) {
+        // For new chats, save with a temporary title
+        await upsertChat({
+          userId: session.user.id,
+          chatId,
+          title: "Generating...",
+          messages,
+        });
+      } else {
+        // For existing chats, just save the messages without updating title
+        await upsertChat({
+          userId: session.user.id,
+          chatId,
+          messages,
+        });
+      }
 
       // Update the trace sessionId now that we have the chatId
       trace.update({
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
             annotation satisfies OurMessageAnnotation as any,
           );
         },
-        onFinish: async ({ finishReason, usage, response }) => {
+        onFinish: async ({ response }) => {
           try {
             const responseMessages = response.messages;
 
@@ -182,13 +183,15 @@ export async function POST(request: Request) {
               (lastMessage as any).annotations = annotations;
             }
 
+            // Resolve the title promise and update the chat
+            const title = await titlePromise;
+
             // Save the complete conversation to the database
             await upsertChat({
               userId: session.user.id,
               chatId,
-              title: chatTitle,
+              ...(title ? { title } : {}), // Only save the title if it's not empty
               messages: messagesToSave,
-              updateTitle: isNewChat, // Only update title for new chats
             });
 
             // Flush the trace to Langfuse

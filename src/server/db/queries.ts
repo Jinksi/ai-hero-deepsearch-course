@@ -81,16 +81,14 @@ export { DAILY_RATE_LIMIT };
 export async function upsertChat(opts: {
   userId: string;
   chatId: string;
-  title: string;
+  title?: string;
   messages: Message[];
-  updateTitle?: boolean;
 }): Promise<void> {
   const {
     userId,
     chatId,
     title,
     messages: chatMessages,
-    updateTitle = true,
   } = opts;
 
   return await db.transaction(async (tx) => {
@@ -110,12 +108,12 @@ export async function upsertChat(opts: {
       // Delete all existing messages for this chat
       await tx.delete(messages).where(eq(messages.chatId, chatId));
 
-      // Update chat title and updatedAt (only if updateTitle is true)
+      // Update chat updatedAt and title if provided
       const updateData: any = {
         updatedAt: new Date(),
       };
 
-      if (updateTitle) {
+      if (title) {
         updateData.title = title;
       }
 
@@ -124,7 +122,7 @@ export async function upsertChat(opts: {
       // Chat doesn't exist - create new chat
       const newChat: DB.NewChat = {
         id: chatId,
-        title,
+        title: title ?? "New Chat",
         userId,
       };
       await tx.insert(chats).values(newChat);
