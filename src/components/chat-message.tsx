@@ -1,6 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import type { Message } from "ai";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 import type { OurMessageAnnotation } from "~/deep-search";
 
@@ -137,6 +137,54 @@ const ReasoningSteps = ({
                     {annotation.action.type === "answer" && (
                       <div className="text-sm italic text-gray-400">
                         <Markdown>{annotation.action.reasoning}</Markdown>
+                      </div>
+                    )}
+                    {annotation.action.type === "sources" && (
+                      <div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {annotation.action.sources.map((source, sourceIndex) => (
+                            <div
+                              key={sourceIndex}
+                              className="border border-gray-600 rounded-lg p-3 bg-gray-700/30 hover:bg-gray-700/50 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                {source.favicon ? (
+                                  <img
+                                    src={source.favicon}
+                                    alt=""
+                                    className="size-4 flex-shrink-0 rounded mt-0.5"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="size-4 flex-shrink-0 bg-gray-600 rounded mt-0.5" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium text-blue-400 hover:text-blue-300 line-clamp-2 block"
+                                  >
+                                    {source.title}
+                                  </a>
+                                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                                    {source.snippet}
+                                  </p>
+                                  <div className="flex items-center justify-between mt-2">
+                                    {source.date && (
+                                      <span className="text-xs text-gray-500">
+                                        {source.date}
+                                      </span>
+                                    )}
+                                    <ExternalLinkIcon className="size-3 text-gray-500" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

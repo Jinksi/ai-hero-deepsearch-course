@@ -42,8 +42,20 @@ export interface DecisionAction {
   feedback: string;
 }
 
+export interface SourcesAction {
+  type: "sources";
+  title: string;
+  sources: {
+    title: string;
+    url: string;
+    snippet: string;
+    favicon?: string;
+    date?: string;
+  }[];
+}
+
 // Extended action types
-export type ExtendedAction = Action | PlanAction | DecisionAction;
+export type ExtendedAction = Action | PlanAction | DecisionAction | SourcesAction;
 
 // Message annotation type for progress indicators
 export type OurMessageAnnotation = {

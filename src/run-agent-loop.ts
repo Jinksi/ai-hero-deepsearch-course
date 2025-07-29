@@ -5,6 +5,8 @@ import {
   type OurMessageAnnotation,
   type PlanAction,
   type DecisionAction,
+  type SourcesAction,
+  type SearchAction,
 } from "~/deep-search";
 import { env } from "~/env";
 import { bulkCrawlWebsites } from "~/scraper";
@@ -46,6 +48,7 @@ export const searchAndScrape = async (
     url: string;
     snippet: string;
     summary: string;
+    favicon: string;
   }[];
 }> => {
   // First, search for results
@@ -59,6 +62,7 @@ export const searchAndScrape = async (
     link: result.link,
     snippet: result.snippet,
     date: result.date ?? "Unknown date",
+    favicon: `https://www.google.com/s2/favicons?domain=${new URL(result.link).hostname}`,
   }));
 
   // Then, scrape the URLs from the search results
@@ -79,6 +83,7 @@ export const searchAndScrape = async (
       url: searchResult.link,
       snippet: searchResult.snippet,
       scrapedContent: scrapedPage?.content ?? "Failed to scrape content",
+      favicon: searchResult.favicon,
     };
   });
 
@@ -107,6 +112,7 @@ export const searchAndScrape = async (
     url: summary.url,
     snippet: summary.snippet,
     summary: summary.summary,
+    favicon: `https://www.google.com/s2/favicons?domain=${new URL(summary.url).hostname}`,
   }));
 
   return {
@@ -190,6 +196,16 @@ export const runAgentLoop = async (opts: {
     );
     const searchPromises = planResult.queries.map(async (query) => {
       console.log("🔍 Executing search for:", query);
+      const searchAction: SearchAction = {
+        type: "search",
+        title: `Searching for "${query}"`,
+        reasoning: `Searching for "${query}"`,
+        query,
+      };
+      opts.writeMessageAnnotation({
+        type: "NEW_ACTION",
+        action: searchAction,
+      });
       const result = await searchAndScrape(
         query,
         ctx.getMessageHistory(),
@@ -237,6 +253,36 @@ export const runAgentLoop = async (opts: {
     successfulResults.forEach((result) => {
       ctx.reportSearch(result);
     });
+
+    // Collect all sources from search results and write sources annotation
+    if (successfulResults.length > 0) {
+      const allSources = successfulResults.flatMap((result) =>
+        result.results.map((searchResult) => ({
+          title: searchResult.title,
+          url: searchResult.url,
+          snippet: searchResult.snippet,
+          date: searchResult.date,
+          favicon: searchResult.favicon,
+        })),
+      );
+
+      // Remove duplicates based on URL
+      const uniqueSources = allSources.filter(
+        (source, index, self) =>
+          index === self.findIndex((s) => s.url === source.url),
+      );
+
+      // Send sources annotation to the UI
+      const sourcesAction: SourcesAction = {
+        type: "sources",
+        title: `Found ${uniqueSources.length} sources`,
+        sources: uniqueSources,
+      };
+      opts.writeMessageAnnotation({
+        type: "NEW_ACTION",
+        action: sourcesAction,
+      });
+    }
 
     // Step 3: Decide whether to continue or answer
     const decision = await getDecision({
