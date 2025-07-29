@@ -2,7 +2,6 @@ import {
   streamText,
   generateObject,
   type Message,
-  type TelemetrySettings,
   type StreamTextResult,
 } from "ai";
 import { z } from "zod";
@@ -101,21 +100,10 @@ export async function streamFromDeepSearch(opts: {
     "messages",
   );
 
-  // Extract the user's question from the last message
-  const lastMessage = opts.messages[opts.messages.length - 1];
-  const userQuestion =
-    typeof lastMessage?.content === "string"
-      ? lastMessage.content
-      : "Please provide an answer to the user's question.";
-
-  console.log("❓ User question extracted:", userQuestion);
-
-  // Create the main streamText call with proper telemetry
-  console.log("🎬 Starting streamText with agent loop...");
-
   // Run the agent loop directly and return the streaming result
   console.log("🎬 Starting agent loop...");
-  const result = await runAgentLoop(userQuestion, {
+  const result = await runAgentLoop({
+    messages: opts.messages,
     writeMessageAnnotation: opts.writeMessageAnnotation ?? (() => {}),
     langfuseTraceId: opts.langfuseTraceId,
   });
@@ -228,7 +216,8 @@ NEVER provide answers based solely on search snippets. ALWAYS scrape the full pa
 
 Your goal is to provide helpful, accurate, and well-sourced responses to user queries based on complete page content from diverse sources.
 
-USER QUESTION: ${context.getInitialQuestion()}
+Message history:
+${context.getMessageHistory()}
 
 Here is what has been done so far:
 

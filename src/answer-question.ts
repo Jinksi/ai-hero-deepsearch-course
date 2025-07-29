@@ -40,8 +40,8 @@ ${
     : "Based on the search and scraping results provided, give a comprehensive answer to the user's question."
 }
 
-User question:
-${context.getInitialQuestion()}
+Message history:
+${context.getMessageHistory()}
 
 Search and scraping results:
 
@@ -57,13 +57,17 @@ Please provide your answer now:`;
     model,
     system: systemPrompt,
     prompt: prompt,
-    experimental_telemetry: options.langfuseTraceId ? {
-      isEnabled: true,
-      functionId: options.isFinal ? "deep-search-final-answer" : "deep-search-answer",
-      metadata: {
-        langfuseTraceId: options.langfuseTraceId,
-        langfuseUpdateParent: true,
-      },
-    } : { isEnabled: false },
+    experimental_telemetry: options.langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: options.isFinal
+            ? "deep-search-final-answer"
+            : "deep-search-answer",
+          metadata: {
+            langfuseTraceId: options.langfuseTraceId,
+            langfuseUpdateParent: true,
+          },
+        }
+      : { isEnabled: false },
   });
 };

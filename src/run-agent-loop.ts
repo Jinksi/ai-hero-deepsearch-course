@@ -1,5 +1,9 @@
-import type { StreamTextResult } from "ai";
-import { getNextAction, type OurMessageAnnotation, type Action } from "~/deep-search";
+import type { StreamTextResult, Message } from "ai";
+import {
+  getNextAction,
+  type OurMessageAnnotation,
+  type Action,
+} from "~/deep-search";
 import { env } from "~/env";
 import { bulkCrawlWebsites } from "~/scraper";
 import { searchSerper } from "~/serper";
@@ -75,17 +79,15 @@ export const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
 };
 
 // Main agent loop implementation
-export const runAgentLoop = async (
-  initialQuestion: string,
-  opts: {
-    writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
-    langfuseTraceId?: string;
-  },
-): Promise<StreamTextResult<Record<string, never>, string>> => {
-  console.log("🚀 Starting agent loop for question:", initialQuestion);
+export const runAgentLoop = async (opts: {
+  messages: Message[];
+  writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
+  langfuseTraceId?: string;
+}): Promise<StreamTextResult<Record<string, never>, string>> => {
+  console.log("🚀 Starting agent loop for messages:", opts.messages.length);
 
   // A persistent container for the state of our system
-  const ctx = new SystemContext(initialQuestion);
+  const ctx = new SystemContext(opts.messages);
 
   // A loop that continues until we have an answer
   // or we've taken 10 actions
@@ -93,7 +95,10 @@ export const runAgentLoop = async (
     console.log(`🔄 Agent loop step ${ctx.step + 1}/10`);
 
     // We choose the next action based on the state of our system
-    const nextAction = await getNextAction({ context: ctx, langfuseTraceId: opts.langfuseTraceId });
+    const nextAction = await getNextAction({
+      context: ctx,
+      langfuseTraceId: opts.langfuseTraceId,
+    });
     console.log("🎯 Next action chosen:", nextAction);
 
     // Send progress annotation to the UI
@@ -144,7 +149,10 @@ export const runAgentLoop = async (
       }
     } else if (nextAction.type === "answer") {
       console.log("💬 Executing answer generation");
-      return answerQuestion(ctx, { isFinal: false, langfuseTraceId: opts.langfuseTraceId });
+      return answerQuestion(ctx, {
+        isFinal: false,
+        langfuseTraceId: opts.langfuseTraceId,
+      });
     }
 
     // We increment the step counter
@@ -154,5 +162,8 @@ export const runAgentLoop = async (
   // If we've taken 10 actions and still don't have an answer,
   // we ask the LLM to give its best attempt at an answer
   console.log("⏰ Reached maximum steps (10), generating final answer");
-  return answerQuestion(ctx, { isFinal: true, langfuseTraceId: opts.langfuseTraceId });
+  return answerQuestion(ctx, {
+    isFinal: true,
+    langfuseTraceId: opts.langfuseTraceId,
+  });
 };

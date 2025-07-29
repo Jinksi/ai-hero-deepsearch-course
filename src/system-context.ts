@@ -1,3 +1,5 @@
+import type { Message } from "ai";
+
 type QueryResultSearchResult = {
   date: string;
   title: string;
@@ -35,12 +37,12 @@ export class SystemContext {
   private scrapeHistory: ScrapeResult[] = [];
 
   /**
-   * The initial question that the user asked
+   * The full message array including all messages
    */
-  private initialQuestion: string;
+  private messages: Message[];
 
-  constructor(initialQuestion: string) {
-    this.initialQuestion = initialQuestion;
+  constructor(messages: Message[]) {
+    this.messages = messages;
   }
 
   shouldStop() {
@@ -83,7 +85,27 @@ export class SystemContext {
       .join("\n\n");
   }
 
-  getInitialQuestion(): string {
-    return this.initialQuestion;
+
+  getMessageHistory(): string {
+    // Build message history from all messages
+    return this.messages
+      .map((message) => {
+        let content = "";
+        if (typeof message.content === "string") {
+          content = message.content;
+        } else if (message.content && Array.isArray(message.content)) {
+          content = (message.content as any[])
+            .map((part: any) =>
+              typeof part === "string"
+                ? part
+                : part.type === "text"
+                  ? part.text
+                  : "",
+            )
+            .join("");
+        }
+        return `${message.role.toUpperCase()}: ${content}`;
+      })
+      .join("\n\n");
   }
 }
