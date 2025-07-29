@@ -26,10 +26,28 @@ export interface AnswerAction {
 
 export type Action = SearchAction | AnswerAction;
 
+// New types for query rewriting and planning
+export interface PlanAction {
+  type: "plan";
+  title: string;
+  plan: string;
+  queries: string[];
+}
+
+export interface DecisionAction {
+  type: "decision";
+  title: string;
+  reasoning: string;
+  decision: "continue" | "answer";
+}
+
+// Extended action types
+export type ExtendedAction = Action | PlanAction | DecisionAction;
+
 // Message annotation type for progress indicators
 export type OurMessageAnnotation = {
   type: "NEW_ACTION";
-  action: Action;
+  action: ExtendedAction;
 };
 
 // Return type for getNextAction that includes optional fields
@@ -70,6 +88,34 @@ export const actionSchema = z
       message: "query is required for search actions",
     },
   );
+
+// Schema for query rewriter - generates multiple queries and a plan
+export const queryRewriterSchema = z.object({
+  plan: z
+    .string()
+    .describe(
+      "A detailed research plan explaining what information needs to be gathered and why. This should outline the logical progression of research needed.",
+    ),
+  queries: z
+    .array(z.string())
+    .min(1)
+    .max(5)
+    .describe(
+      "A list of 1-5 specific search queries that will help answer the user's question. Queries should be specific, focused, and written in natural language. They should progress logically from foundational to specific information.",
+    ),
+});
+
+// Schema for decision maker - only decides whether to continue or answer
+export const decisionSchema = z.object({
+  decision: z
+    .enum(["continue", "answer"])
+    .describe(
+      "Whether to continue searching for more information or answer the question with current information.",
+    ),
+  reasoning: z
+    .string()
+    .describe("The reason for this decision. Explain what information is still needed or why we're ready to answer."),
+});
 
 export async function streamFromDeepSearch(opts: {
   messages: Message[];
@@ -210,6 +256,158 @@ Here is what has been done so far:
 ${context.getSearchHistory()}
 
 Choose the next action to take to help answer the user's question.`,
+  });
+
+  return result.object;
+};
+
+export const queryRewriter = async ({
+  context,
+  langfuseTraceId,
+}: {
+  context: SystemContext;
+  langfuseTraceId?: string;
+}): Promise<{ plan: string; queries: string[] }> => {
+  console.log("📋 queryRewriter called, step:", context.step);
+
+  // Get current date and time for date-aware responses
+  const currentDate = new Date().toLocaleString(env.DEFAULT_LOCALE, {
+    timeZone: env.DEFAULT_TIMEZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const result = await generateObject({
+    model,
+    schema: queryRewriterSchema,
+    system: `You are a strategic research planner with expertise in breaking down complex questions into logical search steps. Your primary role is to create a detailed research plan before generating any search queries.`,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "deep-search-query-rewriter",
+          metadata: {
+            langfuseTraceId: langfuseTraceId,
+            langfuseUpdateParent: true,
+          },
+        }
+      : { isEnabled: false },
+    prompt: `
+CURRENT DATE AND TIME: ${currentDate}
+
+You are a strategic research planner with expertise in breaking down complex questions into logical search steps. Your primary role is to create a detailed research plan before generating any search queries.
+
+First, analyze the question thoroughly:
+- Break down the core components and key concepts
+- Identify any implicit assumptions or context needed
+- Consider what foundational knowledge might be required
+- Think about potential information gaps that need filling
+
+Then, develop a strategic research plan that:
+- Outlines the logical progression of information needed
+- Identifies dependencies between different pieces of information
+- Considers multiple angles or perspectives that might be relevant
+- Anticipates potential dead-ends or areas needing clarification
+
+Finally, translate this plan into a numbered list of 3-5 sequential search queries that:
+
+- Are specific and focused (avoid broad queries that return general information)
+- Are written in natural language without Boolean operators (no AND/OR)
+- Progress logically from foundational to specific information
+- Build upon each other in a meaningful way
+
+Remember that initial queries can be exploratory - they help establish baseline information or verify assumptions before proceeding to more targeted searches. Each query should serve a specific purpose in your overall research plan.
+
+IMPORTANT: When users ask for "up to date" information, "current" information, "latest" news, or anything time-sensitive:
+- Use the current date (${currentDate}) to determine what constitutes "up to date"
+- Prioritise sources with recent publication dates
+- For time-sensitive queries like weather, sports scores, or breaking news, emphasise the recency of the information
+
+${context.getUserLocationContext()}
+
+Message history:
+${context.getMessageHistory()}
+
+Here is what has been done so far:
+
+${context.getSearchHistory()}
+
+Create a research plan and generate search queries to help answer the user's question.`,
+  });
+
+  return result.object;
+};
+
+export const getDecision = async ({
+  context,
+  langfuseTraceId,
+}: {
+  context: SystemContext;
+  langfuseTraceId?: string;
+}): Promise<{ decision: "continue" | "answer"; reasoning: string }> => {
+  console.log("🤔 getDecision called, step:", context.step);
+
+  // Get current date and time for date-aware responses
+  const currentDate = new Date().toLocaleString(env.DEFAULT_LOCALE, {
+    timeZone: env.DEFAULT_TIMEZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const result = await generateObject({
+    model,
+    schema: decisionSchema,
+    system: `You are a decision-making assistant focused on determining whether enough information has been gathered to answer a user's question comprehensively.`,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "deep-search-get-decision",
+          metadata: {
+            langfuseTraceId: langfuseTraceId,
+            langfuseUpdateParent: true,
+          },
+        }
+      : { isEnabled: false },
+    prompt: `
+CURRENT DATE AND TIME: ${currentDate}
+
+Your task is to determine whether we have enough information to provide a comprehensive answer to the user's question, or if we need to continue searching for more information.
+
+Consider the following when making your decision:
+
+For CONTINUE decision:
+- Key information is still missing or unclear
+- The search results don't fully address the user's question
+- There are contradictory information that needs clarification
+- More recent or authoritative sources might be needed
+- The question has multiple parts that haven't been fully explored
+
+For ANSWER decision:
+- We have sufficient information from diverse, credible sources
+- The search results comprehensively address the user's question
+- All key aspects of the question have been explored
+- The information is current and relevant
+- Any contradictions have been resolved or can be acknowledged
+
+Remember: It's better to search once more if you're uncertain, but don't search unnecessarily if we already have comprehensive information.
+
+${context.getUserLocationContext()}
+
+Message history:
+${context.getMessageHistory()}
+
+Here is what has been done so far:
+
+${context.getSearchHistory()}
+
+Based on the information gathered so far, decide whether to continue searching or answer the question.`,
   });
 
   return result.object;

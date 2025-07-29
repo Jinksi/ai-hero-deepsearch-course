@@ -13,7 +13,6 @@ type SearchHistoryEntry = {
   results: SearchResult[];
 };
 
-
 export class SystemContext {
   /**
    * The current step in the loop
@@ -54,7 +53,7 @@ export class SystemContext {
   }
 
   shouldStop() {
-    return this.step >= 10;
+    return this.step >= 2;
   }
 
   incrementStep() {
@@ -84,7 +83,6 @@ export class SystemContext {
       )
       .join("\n\n");
   }
-
 
   getMessageHistory(): string {
     // Build message history from all messages

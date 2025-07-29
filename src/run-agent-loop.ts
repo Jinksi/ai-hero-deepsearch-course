@@ -1,8 +1,10 @@
 import type { StreamTextResult, Message, streamText } from "ai";
 import {
-  getNextAction,
+  queryRewriter,
+  getDecision,
   type OurMessageAnnotation,
-  type Action,
+  type PlanAction,
+  type DecisionAction,
 } from "~/deep-search";
 import { env } from "~/env";
 import { bulkCrawlWebsites } from "~/scraper";
@@ -162,35 +164,109 @@ export const runAgentLoop = async (opts: {
   while (!ctx.shouldStop()) {
     console.log(`🔄 Agent loop step ${ctx.step + 1}/10`);
 
-    // We choose the next action based on the state of our system
-    const nextAction = await getNextAction({
+    // Step 1: Generate research plan and queries
+    const planResult = await queryRewriter({
       context: ctx,
       langfuseTraceId: opts.langfuseTraceId,
     });
-    console.log("🎯 Next action chosen:", nextAction);
+    console.log("📋 Plan generated:", planResult.plan);
+    console.log("🔍 Queries generated:", planResult.queries);
 
-    // Send progress annotation to the UI
+    // Send plan annotation to the UI
+    const planAction: PlanAction = {
+      type: "plan",
+      title: "Planning research approach",
+      plan: planResult.plan,
+      queries: planResult.queries,
+    };
     opts.writeMessageAnnotation({
       type: "NEW_ACTION",
-      action: nextAction as Action,
+      action: planAction,
     });
 
-    // We execute the action and update the state of our system
-    if (nextAction.type === "search" && nextAction.query) {
-      console.log(
-        "🔍 Executing combined search and scrape for:",
-        nextAction.query,
-      );
+    // Step 2: Execute all queries in parallel
+    console.log(
+      `🚀 Executing ${planResult.queries.length} queries in parallel`,
+    );
+    const searchPromises = planResult.queries.map(async (query) => {
+      console.log("🔍 Executing search for:", query);
       const result = await searchAndScrape(
-        nextAction.query,
+        query,
         ctx.getMessageHistory(),
         opts.langfuseTraceId,
       );
       console.log(
-        `📊 Search and scrape returned ${result.results.length} results`,
+        `📊 Search for "${query}" returned ${result.results.length} results`,
       );
+      return result;
+    });
+
+    const searchResults = await Promise.allSettled(searchPromises);
+
+    // Process successful results and log failures
+    const successfulResults = searchResults
+      .filter(
+        (
+          result,
+        ): result is PromiseFulfilledResult<
+          Awaited<ReturnType<typeof searchAndScrape>>
+        > => result.status === "fulfilled",
+      )
+      .map((result) => result.value);
+
+    const failedResults = searchResults
+      .filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      )
+      .map((result, index) => ({
+        query: planResult.queries[index],
+        error: result.reason,
+      }));
+
+    // Log any failures for debugging
+    if (failedResults.length > 0) {
+      console.warn(`⚠️ ${failedResults.length} queries failed:`, failedResults);
+    }
+
+    console.log(
+      `✅ ${successfulResults.length}/${planResult.queries.length} queries completed successfully`,
+    );
+
+    // Report successful search results to context
+    successfulResults.forEach((result) => {
       ctx.reportSearch(result);
-    } else if (nextAction.type === "answer") {
+    });
+
+    // Step 3: Decide whether to continue or answer
+    const decision = await getDecision({
+      context: ctx,
+      langfuseTraceId: opts.langfuseTraceId,
+    });
+    console.log(
+      "🤔 Decision made:",
+      decision.decision,
+      "- Reasoning:",
+      decision.reasoning,
+    );
+
+    // Send decision annotation to the UI
+    const decisionAction: DecisionAction = {
+      type: "decision",
+      title:
+        decision.decision === "continue"
+          ? "Need more information"
+          : "Ready to answer",
+      reasoning: decision.reasoning,
+      decision: decision.decision,
+    };
+    opts.writeMessageAnnotation({
+      type: "NEW_ACTION",
+      action: decisionAction,
+    });
+
+    // Step 4: Act on the decision
+    if (decision.decision === "answer") {
       console.log("💬 Executing answer generation");
       return answerQuestion(ctx, {
         isFinal: false,
@@ -199,7 +275,7 @@ export const runAgentLoop = async (opts: {
       });
     }
 
-    // We increment the step counter
+    // If decision is "continue", increment step and continue loop
     ctx.incrementStep();
   }
 

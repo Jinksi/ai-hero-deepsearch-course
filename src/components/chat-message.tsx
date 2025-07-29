@@ -83,13 +83,54 @@ const ReasoningSteps = ({
               <div className={`${isOpen ? "mt-1" : "hidden"}`}>
                 {isOpen && (
                   <div className="px-2 py-1">
-                    <div className="text-sm italic text-gray-400">
-                      <Markdown>{annotation.action.reasoning}</Markdown>
-                    </div>
+                    {annotation.action.type === "plan" && (
+                      <div>
+                        <div className="text-sm italic text-gray-400 mb-3">
+                          <Markdown>{annotation.action.plan}</Markdown>
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          <div className="mb-2 font-semibold">Search Queries:</div>
+                          <ul className="list-disc pl-4 space-y-1">
+                            {annotation.action.queries.map((query, queryIndex) => (
+                              <li key={queryIndex} className="flex items-center gap-2">
+                                <SearchIcon className="size-3 flex-shrink-0" />
+                                <span>{query}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                    {annotation.action.type === "decision" && (
+                      <div>
+                        <div className="text-sm italic text-gray-400 mb-2">
+                          <Markdown>{annotation.action.reasoning}</Markdown>
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                            annotation.action.decision === "continue" 
+                              ? "bg-blue-500/20 text-blue-300" 
+                              : "bg-green-500/20 text-green-300"
+                          }`}>
+                            {annotation.action.decision === "continue" ? "Continue Searching" : "Ready to Answer"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     {annotation.action.type === "search" && (
-                      <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
-                        <SearchIcon className="size-4" />
-                        <span>{annotation.action.query}</span>
+                      <div>
+                        <div className="text-sm italic text-gray-400 mb-2">
+                          <Markdown>{annotation.action.reasoning}</Markdown>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-400">
+                          <SearchIcon className="size-4" />
+                          <span>{annotation.action.query}</span>
+                        </div>
+                      </div>
+                    )}
+                    {annotation.action.type === "answer" && (
+                      <div className="text-sm italic text-gray-400">
+                        <Markdown>{annotation.action.reasoning}</Markdown>
                       </div>
                     )}
                   </div>
