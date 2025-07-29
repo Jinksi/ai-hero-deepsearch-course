@@ -27,7 +27,7 @@ export const env = createEnv({
     JINA_API_KEY: z.string(),
     OPENAI_API_KEY: z.string(),
     EVAL_DATASET: z.enum(["dev", "ci", "regression"]).default("dev"),
-    SEARCH_RESULTS_COUNT: z.coerce.number().default(3),
+    SEARCH_RESULTS_COUNT: z.coerce.number().default(10),
     DEFAULT_LOCALE: z.string().default("en-AU"),
     DEFAULT_TIMEZONE: z.string().default("Australia/Brisbane"),
   },

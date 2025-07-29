@@ -27,10 +27,10 @@ export const answerQuestion = (
   const prompt = `
 CURRENT DATE AND TIME: ${currentDate}
 
-Your task is to synthesise the search results and scraped content to provide a helpful, accurate answer to the user's question.
+Your task is to synthesise the search results and summarised content to provide a helpful, accurate answer to the user's question.
 
 Guidelines:
-- Provide accurate information based on the scraped content
+- Provide accurate information based on the summarised content
 - Cite your sources using inline links in markdown format: [Title of Source](URL)
 - When citing sources, mention publication dates if available
 - For time-sensitive information, emphasise the recency and current relevance
@@ -41,7 +41,7 @@ Guidelines:
 ${
   options.isFinal
     ? "IMPORTANT: This is your final attempt to answer. You may not have all the information you need, but you must provide the best possible answer based on the available data. If information is incomplete or missing, acknowledge this limitation while still providing a useful response."
-    : "Based on the search and scraping results provided, give a comprehensive answer to the user's question."
+    : "Based on the search results and summarised content provided, give a comprehensive answer to the user's question."
 }
 
 ${context.getUserLocationContext()}
@@ -49,7 +49,7 @@ ${context.getUserLocationContext()}
 Message history:
 ${context.getMessageHistory()}
 
-Search and scraping results:
+Search results and summaries:
 
 ${context.getSearchHistory()}
 
