@@ -1,5 +1,5 @@
 import {
-  type streamText,
+  streamText,
   generateObject,
   type Message,
   type TelemetrySettings,
@@ -50,45 +50,49 @@ export interface ActionResult {
 }
 
 // Schema for structured outputs - using single object with conditional validation
-export const actionSchema = z.object({
-  title: z
-    .string()
-    .describe(
-      "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
-    ),
-  reasoning: z
-    .string()
-    .describe("The reason you chose this step."),
-  type: z.enum(["search", "scrape", "answer"]).describe(
-    `The type of action to take.
+export const actionSchema = z
+  .object({
+    title: z
+      .string()
+      .describe(
+        "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
+      ),
+    reasoning: z.string().describe("The reason you chose this step."),
+    type: z.enum(["search", "scrape", "answer"]).describe(
+      `The type of action to take.
       - 'search': Search the web for more information.
       - 'scrape': Scrape a URL.
       - 'answer': Answer the user's question and complete the loop.`,
-  ),
-  query: z
-    .string()
-    .describe("The query to search for. Required if type is 'search'.")
-    .optional(),
-  urls: z
-    .array(z.string())
-    .describe("The URLs to scrape. Required if type is 'scrape'.")
-    .optional(),
-}).refine((data) => {
-  if (data.type === "search" && !data.query) {
-    return false;
-  }
-  if (data.type === "scrape" && (!data.urls || data.urls.length === 0)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "query is required for search actions, urls are required for scrape actions"
-});
+    ),
+    query: z
+      .string()
+      .describe("The query to search for. Required if type is 'search'.")
+      .optional(),
+    urls: z
+      .array(z.string())
+      .describe("The URLs to scrape. Required if type is 'scrape'.")
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.type === "search" && !data.query) {
+        return false;
+      }
+      if (data.type === "scrape" && (!data.urls || data.urls.length === 0)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        "query is required for search actions, urls are required for scrape actions",
+    },
+  );
 
 export async function streamFromDeepSearch(opts: {
   messages: Message[];
   onFinish: Parameters<typeof streamText>[0]["onFinish"];
-  telemetry: TelemetrySettings;
+  langfuseTraceId: string;
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
 }): Promise<StreamTextResult<Record<string, never>, string>> {
   console.log(
@@ -106,10 +110,14 @@ export async function streamFromDeepSearch(opts: {
 
   console.log("❓ User question extracted:", userQuestion);
 
-  // Run the agent loop and return the streaming result
+  // Create the main streamText call with proper telemetry
+  console.log("🎬 Starting streamText with agent loop...");
+
+  // Run the agent loop directly and return the streaming result
   console.log("🎬 Starting agent loop...");
   const result = await runAgentLoop(userQuestion, {
     writeMessageAnnotation: opts.writeMessageAnnotation ?? (() => {}),
+    langfuseTraceId: opts.langfuseTraceId,
   });
   console.log("✨ Agent loop completed, returning streaming result");
 
@@ -123,9 +131,7 @@ export async function askDeepSearch(messages: Message[]) {
   const result = await streamFromDeepSearch({
     messages,
     onFinish: () => {}, // just a stub
-    telemetry: {
-      isEnabled: false,
-    },
+    langfuseTraceId: "test-session",
     writeMessageAnnotation: () => {}, // no-op for evaluations
   });
 
@@ -146,7 +152,9 @@ export async function askDeepSearch(messages: Message[]) {
     console.error("❌ Stream consumption failed:", error);
     // Re-throw the error instead of silently continuing
     // This ensures caller can handle stream failures appropriately
-    throw new Error(`Stream consumption failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Stream consumption failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const text = await result.text;
@@ -155,9 +163,13 @@ export async function askDeepSearch(messages: Message[]) {
   return text;
 }
 
-export const getNextAction = async (
-  context: SystemContext,
-): Promise<ActionResult> => {
+export const getNextAction = async ({
+  context,
+  langfuseTraceId,
+}: {
+  context: SystemContext;
+  langfuseTraceId?: string;
+}): Promise<ActionResult> => {
   console.log("🧠 getNextAction called, step:", context.step);
 
   // Get current date and time for date-aware responses
@@ -175,6 +187,16 @@ export const getNextAction = async (
     model,
     schema: actionSchema,
     system: `You are a helpful AI assistant with access to web search and web scraping capabilities.`,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "deep-search-get-next-action",
+          metadata: {
+            langfuseTraceId: langfuseTraceId,
+            langfuseUpdateParent: true,
+          },
+        }
+      : { isEnabled: false },
     prompt: `
 CURRENT DATE AND TIME: ${currentDate}
 

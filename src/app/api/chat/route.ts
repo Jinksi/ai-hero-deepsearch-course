@@ -26,45 +26,12 @@ export async function POST(request: Request) {
     return new Response("Unauthorised", { status: 401 });
   }
 
-  // Create a trace with session and user tracking
-  const trace = langfuse.trace({
-    name: "chat",
-    userId: session.user.id,
-  });
-
   // Check global rate limit first
-  const globalRateLimitSpan = trace.span({
-    name: "global-rate-limit-check",
-    input: globalRateLimitConfig,
-  });
-
   const globalRateLimitCheck = await checkRateLimit(globalRateLimitConfig);
-
-  globalRateLimitSpan.end({
-    output: {
-      allowed: globalRateLimitCheck.allowed,
-      remaining: globalRateLimitCheck.remaining,
-      totalHits: globalRateLimitCheck.totalHits,
-      resetTime: globalRateLimitCheck.resetTime,
-    },
-  });
 
   if (!globalRateLimitCheck.allowed) {
     console.log("Global rate limit exceeded, waiting for reset...");
-    const globalRateLimitWaitSpan = trace.span({
-      name: "global-rate-limit-wait",
-      input: {
-        waitTime: globalRateLimitCheck.resetTime - Date.now(),
-      },
-    });
-
     const isAllowed = await globalRateLimitCheck.retry();
-
-    globalRateLimitWaitSpan.end({
-      output: {
-        success: isAllowed,
-      },
-    });
 
     // If still not allowed after retries, return error
     if (!isAllowed) {
@@ -91,22 +58,8 @@ export async function POST(request: Request) {
   // Record the global rate limit usage
   await recordRateLimit(globalRateLimitConfig);
 
-  // Check user-specific rate limiting with tracing
-  const rateLimitSpan = trace.span({
-    name: "user-rate-limit-check",
-    input: {
-      userId: session.user.id,
-    },
-  });
-
+  // Check user-specific rate limiting
   const canMakeRequest = await canUserMakeRequest(session.user.id);
-
-  rateLimitSpan.end({
-    output: {
-      canMakeRequest,
-      dailyLimit: DAILY_RATE_LIMIT,
-    },
-  });
 
   if (!canMakeRequest) {
     return new Response(
@@ -135,25 +88,19 @@ export async function POST(request: Request) {
   // If it's a new chat, we'll use the generated chatId from the request
   // If it's an existing chat, we'll use the provided chatId
 
+  // Create a trace for telemetry metadata
+  const trace = langfuse.trace({
+    name: "chat",
+    userId: session.user.id,
+    sessionId: body.chatId,
+  });
+
   return createDataStreamResponse({
     execute: async (dataStream) => {
       const { messages, chatId, isNewChat } = body;
 
-      // Record the request with tracing
-      const recordRequestSpan = trace.span({
-        name: "record-user-request",
-        input: {
-          userId: session.user.id,
-        },
-      });
-
+      // Record the request
       await recordUserRequest(session.user.id);
-
-      recordRequestSpan.end({
-        output: {
-          success: true,
-        },
-      });
 
       // If this is a new chat, send the chatId to the frontend
       if (isNewChat) {
@@ -181,32 +128,13 @@ export async function POST(request: Request) {
         chatTitle = "New Chat";
       }
 
-      // First upsertChat call with tracing
-      const initialUpsertSpan = trace.span({
-        name: "initial-chat-upsert",
-        input: {
-          userId: session.user.id,
-          chatId,
-          title: chatTitle,
-          messageCount: messages.length,
-          isNewChat,
-          updateTitle: isNewChat,
-        },
-      });
-
+      // First upsertChat call
       await upsertChat({
         userId: session.user.id,
         chatId,
         title: chatTitle,
         messages,
         updateTitle: isNewChat, // Only update title for new chats
-      });
-
-      initialUpsertSpan.end({
-        output: {
-          success: true,
-          chatId,
-        },
       });
 
       // Update the trace sessionId now that we have the chatId
@@ -216,15 +144,11 @@ export async function POST(request: Request) {
 
       const result = await streamFromDeepSearch({
         messages,
-        telemetry: {
-          isEnabled: true,
-          functionId: `agent`,
-          metadata: {
-            langfuseTraceId: trace.id,
-          },
-        },
+        langfuseTraceId: trace.id,
         writeMessageAnnotation: (annotation) => {
-          dataStream.writeMessageAnnotation(annotation satisfies OurMessageAnnotation as any);
+          dataStream.writeMessageAnnotation(
+            annotation satisfies OurMessageAnnotation as any,
+          );
         },
         onFinish: async ({ finishReason, usage, response }) => {
           try {
@@ -246,34 +170,13 @@ export async function POST(request: Request) {
               createdAt: msg.createdAt,
             }));
 
-            // Save the complete conversation to the database with tracing
-            const finalUpsertSpan = trace.span({
-              name: "final-chat-upsert",
-              input: {
-                userId: session.user.id,
-                chatId,
-                title: chatTitle,
-                messageCount: messagesToSave.length,
-                updateTitle: isNewChat,
-                finishReason,
-                usage,
-              },
-            });
-
+            // Save the complete conversation to the database
             await upsertChat({
               userId: session.user.id,
               chatId,
               title: chatTitle,
               messages: messagesToSave,
               updateTitle: isNewChat, // Only update title for new chats
-            });
-
-            finalUpsertSpan.end({
-              output: {
-                success: true,
-                chatId,
-                totalMessages: messagesToSave.length,
-              },
             });
 
             // Flush the trace to Langfuse

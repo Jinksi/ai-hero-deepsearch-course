@@ -79,6 +79,7 @@ export const runAgentLoop = async (
   initialQuestion: string,
   opts: {
     writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
+    langfuseTraceId?: string;
   },
 ): Promise<StreamTextResult<Record<string, never>, string>> => {
   console.log("🚀 Starting agent loop for question:", initialQuestion);
@@ -92,7 +93,7 @@ export const runAgentLoop = async (
     console.log(`🔄 Agent loop step ${ctx.step + 1}/10`);
 
     // We choose the next action based on the state of our system
-    const nextAction = await getNextAction(ctx);
+    const nextAction = await getNextAction({ context: ctx, langfuseTraceId: opts.langfuseTraceId });
     console.log("🎯 Next action chosen:", nextAction);
 
     // Send progress annotation to the UI
@@ -143,7 +144,7 @@ export const runAgentLoop = async (
       }
     } else if (nextAction.type === "answer") {
       console.log("💬 Executing answer generation");
-      return answerQuestion(ctx, { isFinal: false });
+      return answerQuestion(ctx, { isFinal: false, langfuseTraceId: opts.langfuseTraceId });
     }
 
     // We increment the step counter
@@ -153,5 +154,5 @@ export const runAgentLoop = async (
   // If we've taken 10 actions and still don't have an answer,
   // we ask the LLM to give its best attempt at an answer
   console.log("⏰ Reached maximum steps (10), generating final answer");
-  return answerQuestion(ctx, { isFinal: true });
+  return answerQuestion(ctx, { isFinal: true, langfuseTraceId: opts.langfuseTraceId });
 };
