@@ -18,20 +18,13 @@ export interface SearchAction {
   query: string;
 }
 
-export interface ScrapeAction {
-  type: "scrape";
-  title: string;
-  reasoning: string;
-  urls: string[];
-}
-
 export interface AnswerAction {
   type: "answer";
   title: string;
   reasoning: string;
 }
 
-export type Action = SearchAction | ScrapeAction | AnswerAction;
+export type Action = SearchAction | AnswerAction;
 
 // Message annotation type for progress indicators
 export type OurMessageAnnotation = {
@@ -41,11 +34,10 @@ export type OurMessageAnnotation = {
 
 // Return type for getNextAction that includes optional fields
 export interface ActionResult {
-  type: "search" | "scrape" | "answer";
+  type: "search" | "answer";
   title: string;
   reasoning: string;
   query?: string;
-  urls?: string[];
 }
 
 // Schema for structured outputs - using single object with conditional validation
@@ -57,19 +49,14 @@ export const actionSchema = z
         "The title of the action, to be displayed in the UI. Be extremely concise. 'Searching Saka's injury history', 'Checking HMRC industrial action', 'Comparing toaster ovens'",
       ),
     reasoning: z.string().describe("The reason you chose this step."),
-    type: z.enum(["search", "scrape", "answer"]).describe(
+    type: z.enum(["search", "answer"]).describe(
       `The type of action to take.
-      - 'search': Search the web for more information.
-      - 'scrape': Scrape a URL.
+      - 'search': Search the web for information and automatically scrape the most relevant results.
       - 'answer': Answer the user's question and complete the loop.`,
     ),
     query: z
       .string()
       .describe("The query to search for. Required if type is 'search'.")
-      .optional(),
-    urls: z
-      .array(z.string())
-      .describe("The URLs to scrape. Required if type is 'scrape'.")
       .optional(),
   })
   .refine(
@@ -77,14 +64,10 @@ export const actionSchema = z
       if (data.type === "search" && !data.query) {
         return false;
       }
-      if (data.type === "scrape" && (!data.urls || data.urls.length === 0)) {
-        return false;
-      }
       return true;
     },
     {
-      message:
-        "query is required for search actions, urls are required for scrape actions",
+      message: "query is required for search actions",
     },
   );
 
@@ -196,9 +179,7 @@ export const getNextAction = async ({
     prompt: `
 CURRENT DATE AND TIME: ${currentDate}
 
-You MUST ALWAYS use the search action to find current, accurate information to answer user questions. This allows you to provide up-to-date information and cite reliable sources.
-
-You MUST ALWAYS use the scrape action after finding relevant search results. The search action only provides snippets, which are insufficient for comprehensive answers. You MUST scrape the full content of relevant pages to provide detailed, accurate responses.
+You MUST ALWAYS use the search action to find current, accurate information to answer user questions. The search action will automatically search the web and scrape the full content of the most relevant results, providing you with comprehensive information from diverse sources.
 
 IMPORTANT: When users ask for "up to date" information, "current" information, "latest" news, or anything time-sensitive:
 - Use the current date (${currentDate}) to determine what constitutes "up to date"
@@ -208,19 +189,14 @@ IMPORTANT: When users ask for "up to date" information, "current" information, "
 - If sources are outdated relative to the current date, acknowledge this and suggest searching for more recent information
 
 Your workflow is:
-1. ALWAYS search for relevant information first
-2. ALWAYS scrape the full content of the most relevant search results (4-6 pages per query)
-3. ALWAYS select a diverse range of sources from different websites, domains, and perspectives to ensure comprehensive coverage
-4. ALWAYS provide comprehensive answers based on the full page content, not just search snippets
+1. ALWAYS search for relevant information first - this will automatically provide you with both search results and the full scraped content from the most relevant pages
+2. ALWAYS provide comprehensive answers based on the full page content, not just search snippets
 
-When selecting URLs to scrape:
-- Choose 4-6 URLs per query for thorough coverage
-- Prioritise diversity across different domains, websites, and sources
-- Include different perspectives and viewpoints when relevant
-- Select high-quality, authoritative sources
-- Avoid scraping multiple pages from the same domain unless necessary for comprehensive coverage
-
-NEVER provide answers based solely on search snippets. ALWAYS scrape the full pages and use that content for your responses.
+The search action automatically:
+- Searches the web for information
+- Selects the most relevant results from diverse sources and domains
+- Scrapes the full content of these pages
+- Provides you with both search snippets and complete page content
 
 Your goal is to provide helpful, accurate, and well-sourced responses to user queries based on complete page content from diverse sources.
 
@@ -231,9 +207,7 @@ ${context.getMessageHistory()}
 
 Here is what has been done so far:
 
-${context.getQueryHistory()}
-
-${context.getScrapeHistory()}
+${context.getSearchHistory()}
 
 Choose the next action to take to help answer the user's question.`,
   });

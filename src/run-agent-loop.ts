@@ -11,14 +11,7 @@ import { SystemContext } from "~/system-context";
 
 import { answerQuestion } from "./answer-question";
 
-// Types for search and scrape results
-interface SearchResult {
-  title: string;
-  link: string;
-  snippet: string;
-  date: string | undefined;
-}
-
+// Types for scrape results (used internally by searchAndScrape)
 interface ScrapePageResult {
   url: string;
   content: string;
@@ -37,23 +30,57 @@ interface ScrapeErrorResult {
 
 type ScrapeResult = ScrapeSuccessResult | ScrapeErrorResult;
 
-// Copied and adapted from deep-search.ts searchWeb tool
-export const searchWeb = async (query: string): Promise<SearchResult[]> => {
-  const results = await searchSerper(
+// Combined search and scrape functionality
+export const searchAndScrape = async (query: string): Promise<{
+  query: string;
+  results: {
+    date: string;
+    title: string;
+    url: string;
+    snippet: string;
+    scrapedContent: string;
+  }[];
+}> => {
+  // First, search for results
+  const searchResults = await searchSerper(
     { q: query, num: env.SEARCH_RESULTS_COUNT },
     undefined, // abortSignal
   );
 
-  return results.organic.map((result) => ({
+  const searchResultsFormatted = searchResults.organic.map((result) => ({
     title: result.title,
     link: result.link,
     snippet: result.snippet,
-    date: result.date,
+    date: result.date ?? "Unknown date",
   }));
+
+  // Then, scrape the URLs from the search results
+  const urls = searchResultsFormatted.map(result => result.link);
+  const scrapeResult = await scrapeUrl(urls);
+
+  // Combine search results with scraped content
+  const combinedResults = searchResultsFormatted.map((searchResult) => {
+    const scrapedPage = scrapeResult.success 
+      ? scrapeResult.pages.find(page => page.url === searchResult.link)
+      : scrapeResult.partialResults?.find(page => page.url === searchResult.link);
+    
+    return {
+      date: searchResult.date,
+      title: searchResult.title,
+      url: searchResult.link,
+      snippet: searchResult.snippet,
+      scrapedContent: scrapedPage?.content ?? "Failed to scrape content",
+    };
+  });
+
+  return {
+    query,
+    results: combinedResults,
+  };
 };
 
-// Copied and adapted from deep-search.ts scrapePages tool
-export const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
+// Internal scrape functionality used by searchAndScrape
+const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
   const result = await bulkCrawlWebsites({ urls });
 
   if (result.success) {
@@ -116,44 +143,10 @@ export const runAgentLoop = async (opts: {
 
     // We execute the action and update the state of our system
     if (nextAction.type === "search" && nextAction.query) {
-      console.log("🔍 Executing search for:", nextAction.query);
-      const result = await searchWeb(nextAction.query);
-      console.log(`📊 Search returned ${result.length} results`);
-      ctx.reportQueries([
-        {
-          query: nextAction.query,
-          results: result.map((r) => ({
-            date: r.date ?? "Unknown date",
-            title: r.title,
-            url: r.link,
-            snippet: r.snippet,
-          })),
-        },
-      ]);
-    } else if (nextAction.type === "scrape" && nextAction.urls) {
-      console.log("🕷️ Executing scrape for URLs:", nextAction.urls);
-      const result = await scrapeUrl(nextAction.urls);
-      if (result.success) {
-        console.log(`✅ Scrape successful for ${result.pages.length} pages`);
-        ctx.reportScrapes(
-          result.pages.map((page) => ({
-            url: page.url,
-            result: page.content,
-          })),
-        );
-      } else if (result.partialResults) {
-        console.log(
-          `⚠️ Scrape partially successful for ${result.partialResults.length} pages`,
-        );
-        ctx.reportScrapes(
-          result.partialResults.map((page) => ({
-            url: page.url,
-            result: page.content,
-          })),
-        );
-      } else {
-        console.log("❌ Scrape failed completely");
-      }
+      console.log("🔍 Executing combined search and scrape for:", nextAction.query);
+      const result = await searchAndScrape(nextAction.query);
+      console.log(`📊 Search and scrape returned ${result.results.length} results`);
+      ctx.reportSearch(result);
     } else if (nextAction.type === "answer") {
       console.log("💬 Executing answer generation");
       return answerQuestion(ctx, {

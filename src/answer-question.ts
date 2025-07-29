@@ -51,9 +51,7 @@ ${context.getMessageHistory()}
 
 Search and scraping results:
 
-${context.getQueryHistory()}
-
-${context.getScrapeHistory()}
+${context.getSearchHistory()}
 
 Please provide your answer now:`;
 
