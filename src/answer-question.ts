@@ -44,6 +44,8 @@ ${
     : "Based on the search and scraping results provided, give a comprehensive answer to the user's question."
 }
 
+${context.getUserLocationContext()}
+
 Message history:
 ${context.getMessageHistory()}
 

@@ -1,5 +1,6 @@
 import type { Message } from "ai";
 import { appendResponseMessages, createDataStreamResponse } from "ai";
+import { geolocation } from "@vercel/functions";
 import { Langfuse } from "langfuse";
 import { globalRateLimitConfig } from "~/config/rate-limit";
 import { streamFromDeepSearch, type OurMessageAnnotation } from "~/deep-search";
@@ -26,6 +27,26 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return new Response("Unauthorised", { status: 401 });
   }
+
+  // Mock geolocation headers for development
+  if (process.env.NODE_ENV === "development") {
+    request.headers.set("x-vercel-ip-country", "AU");
+    request.headers.set("x-vercel-ip-country-region", "QLD");
+    request.headers.set("x-vercel-ip-city", "Gold Coast");
+    request.headers.set("x-vercel-ip-latitude", "-28.0167");
+    request.headers.set("x-vercel-ip-longitude", "153.4000");
+  }
+
+  // Get user location - NOTE: This relies on Vercel hosting and reads Vercel-specific headers
+  // For other hosting providers, replace with appropriate geolocation service
+  const { longitude, latitude, city, country } = geolocation(request);
+
+  const userLocation = {
+    longitude,
+    latitude,
+    city,
+    country,
+  };
 
   // Check global rate limit first
   const globalRateLimitCheck = await checkRateLimit(globalRateLimitConfig);
@@ -148,6 +169,7 @@ export async function POST(request: Request) {
 
       const result = await streamFromDeepSearch({
         messages,
+        userLocation,
         langfuseTraceId: trace.id,
         writeMessageAnnotation: (annotation) => {
           // Save the annotation in-memory

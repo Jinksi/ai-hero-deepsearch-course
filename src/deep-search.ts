@@ -1,8 +1,8 @@
 import {
-  streamText,
   generateObject,
   type Message,
   type StreamTextResult,
+  type streamText,
 } from "ai";
 import { z } from "zod";
 import { model } from "~/models";
@@ -90,6 +90,12 @@ export const actionSchema = z
 
 export async function streamFromDeepSearch(opts: {
   messages: Message[];
+  userLocation?: {
+    longitude?: string;
+    latitude?: string;
+    city?: string;
+    country?: string;
+  };
   onFinish: Parameters<typeof streamText>[0]["onFinish"];
   langfuseTraceId: string;
   writeMessageAnnotation?: (annotation: OurMessageAnnotation) => void;
@@ -104,6 +110,7 @@ export async function streamFromDeepSearch(opts: {
   console.log("🎬 Starting agent loop...");
   const result = await runAgentLoop({
     messages: opts.messages,
+    userLocation: opts.userLocation,
     writeMessageAnnotation: opts.writeMessageAnnotation ?? (() => {}),
     langfuseTraceId: opts.langfuseTraceId,
     onFinish: opts.onFinish,
@@ -118,6 +125,7 @@ export async function askDeepSearch(messages: Message[]) {
 
   const result = await streamFromDeepSearch({
     messages,
+    userLocation: undefined, // No location data for evaluations
     onFinish: () => {}, // just a stub
     langfuseTraceId: "test-session",
     writeMessageAnnotation: () => {}, // no-op for evaluations
@@ -215,6 +223,8 @@ When selecting URLs to scrape:
 NEVER provide answers based solely on search snippets. ALWAYS scrape the full pages and use that content for your responses.
 
 Your goal is to provide helpful, accurate, and well-sourced responses to user queries based on complete page content from diverse sources.
+
+${context.getUserLocationContext()}
 
 Message history:
 ${context.getMessageHistory()}

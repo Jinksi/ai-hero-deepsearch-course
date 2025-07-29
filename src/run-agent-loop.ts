@@ -81,6 +81,12 @@ export const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
 // Main agent loop implementation
 export const runAgentLoop = async (opts: {
   messages: Message[];
+  userLocation?: {
+    longitude?: string;
+    latitude?: string;
+    city?: string;
+    country?: string;
+  };
   writeMessageAnnotation: (annotation: OurMessageAnnotation) => void;
   langfuseTraceId?: string;
   onFinish: Parameters<typeof streamText>[0]["onFinish"];
@@ -88,7 +94,7 @@ export const runAgentLoop = async (opts: {
   console.log("🚀 Starting agent loop for messages:", opts.messages.length);
 
   // A persistent container for the state of our system
-  const ctx = new SystemContext(opts.messages);
+  const ctx = new SystemContext(opts.messages, opts.userLocation);
 
   // A loop that continues until we have an answer
   // or we've taken 10 actions

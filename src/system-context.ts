@@ -41,8 +41,27 @@ export class SystemContext {
    */
   private messages: Message[];
 
-  constructor(messages: Message[]) {
+  /**
+   * The user's location information
+   */
+  private userLocation?: {
+    longitude?: string;
+    latitude?: string;
+    city?: string;
+    country?: string;
+  };
+
+  constructor(
+    messages: Message[],
+    userLocation?: {
+      longitude?: string;
+      latitude?: string;
+      city?: string;
+      country?: string;
+    },
+  ) {
     this.messages = messages;
+    this.userLocation = userLocation;
   }
 
   shouldStop() {
@@ -107,5 +126,23 @@ export class SystemContext {
         return `${message.role.toUpperCase()}: ${content}`;
       })
       .join("\n\n");
+  }
+
+  getUserLocationContext(): string {
+    if (!this.userLocation) {
+      return "";
+    }
+
+    const { latitude, longitude, city, country } = this.userLocation;
+
+    if (!latitude || !longitude || !city || !country) {
+      return "";
+    }
+
+    return `About the origin of user's request:
+- lat: ${latitude}
+- lon: ${longitude}
+- city: ${city}
+- country: ${country}`;
   }
 }
