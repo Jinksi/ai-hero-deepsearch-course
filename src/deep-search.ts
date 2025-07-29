@@ -39,6 +39,7 @@ export interface DecisionAction {
   title: string;
   reasoning: string;
   decision: "continue" | "answer";
+  feedback: string;
 }
 
 // Extended action types
@@ -105,7 +106,7 @@ export const queryRewriterSchema = z.object({
     ),
 });
 
-// Schema for decision maker - only decides whether to continue or answer
+// Schema for decision maker - decides whether to continue or answer with detailed feedback
 export const decisionSchema = z.object({
   decision: z
     .enum(["continue", "answer"])
@@ -115,6 +116,9 @@ export const decisionSchema = z.object({
   reasoning: z
     .string()
     .describe("The reason for this decision. Explain what information is still needed or why we're ready to answer."),
+  feedback: z
+    .string()
+    .describe("Detailed feedback about the current research state. Identify information gaps, quality issues, or what specific information still needs to be found. This feedback will guide the next search queries."),
 });
 
 export async function streamFromDeepSearch(opts: {
@@ -335,6 +339,13 @@ Here is what has been done so far:
 
 ${context.getSearchHistory()}
 
+${context.getMostRecentFeedback() ? `
+Previous evaluator feedback:
+${context.getMostRecentFeedback()}
+
+Use this feedback to guide your research planning. Focus on the specific information gaps and quality issues identified above.
+` : ""}
+
 Create a research plan and generate search queries to help answer the user's question.`,
   });
 
@@ -347,7 +358,7 @@ export const getDecision = async ({
 }: {
   context: SystemContext;
   langfuseTraceId?: string;
-}): Promise<{ decision: "continue" | "answer"; reasoning: string }> => {
+}): Promise<{ decision: "continue" | "answer"; reasoning: string; feedback: string }> => {
   console.log("🤔 getDecision called, step:", context.step);
 
   // Get current date and time for date-aware responses
@@ -364,7 +375,7 @@ export const getDecision = async ({
   const result = await generateObject({
     model,
     schema: decisionSchema,
-    system: `You are a decision-making assistant focused on determining whether enough information has been gathered to answer a user's question comprehensively.`,
+    system: `You are a research query optimiser. Your task is to analyse search results against the original research goal and either decide to answer the question or to search for more information.`,
     experimental_telemetry: langfuseTraceId
       ? {
           isEnabled: true,
@@ -378,25 +389,41 @@ export const getDecision = async ({
     prompt: `
 CURRENT DATE AND TIME: ${currentDate}
 
+PROCESS:
+1. Identify ALL information explicitly requested in the original research goal
+2. Analyse what specific information has been successfully retrieved in the search results
+3. Identify ALL information gaps between what was requested and what was found
+4. For entity-specific gaps: Create targeted queries for each missing attribute of identified entities
+5. For general knowledge gaps: Create focused queries to find the missing conceptual information
+
 Your task is to determine whether we have enough information to provide a comprehensive answer to the user's question, or if we need to continue searching for more information.
 
 Consider the following when making your decision:
 
 For CONTINUE decision:
-- Key information is still missing or unclear
-- The search results don't fully address the user's question
-- There are contradictory information that needs clarification
-- More recent or authoritative sources might be needed
-- The question has multiple parts that haven't been fully explored
+- Key information is still missing or unclear from the original request
+- The search results don't fully address all aspects of the user's question
+- There are contradictory pieces of information that need clarification
+- More recent or authoritative sources might be needed for accuracy
+- The question has multiple components that haven't been fully explored
+- Entity-specific attributes are missing (dates, numbers, names, relationships)
+- Conceptual gaps exist that prevent a complete understanding
 
 For ANSWER decision:
 - We have sufficient information from diverse, credible sources
-- The search results comprehensively address the user's question
-- All key aspects of the question have been explored
-- The information is current and relevant
+- The search results comprehensively address ALL parts of the user's question
+- All key aspects and entities mentioned in the question have been explored
+- The information is current and relevant to the user's needs
 - Any contradictions have been resolved or can be acknowledged
+- We have specific details needed to provide actionable insights
 
-Remember: It's better to search once more if you're uncertain, but don't search unnecessarily if we already have comprehensive information.
+Remember: It's better to search once more if you're uncertain about completeness, but don't search unnecessarily if we already have comprehensive information covering all aspects of the original question.
+
+When providing feedback, be specific about:
+- What information is still missing
+- What quality issues exist with current results
+- Which aspects of the original question remain unaddressed
+- What specific searches would help fill these gaps
 
 ${context.getUserLocationContext()}
 
@@ -407,7 +434,7 @@ Here is what has been done so far:
 
 ${context.getSearchHistory()}
 
-Based on the information gathered so far, decide whether to continue searching or answer the question.`,
+Based on the information gathered so far, decide whether to continue searching or answer the question, and provide detailed feedback about the current research state.`,
   });
 
   return result.object;

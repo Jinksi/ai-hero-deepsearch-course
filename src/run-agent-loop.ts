@@ -250,6 +250,9 @@ export const runAgentLoop = async (opts: {
       decision.reasoning,
     );
 
+    // Store the feedback in context for next iteration
+    ctx.updateFeedback(decision.feedback);
+
     // Send decision annotation to the UI
     const decisionAction: DecisionAction = {
       type: "decision",
@@ -259,6 +262,7 @@ export const runAgentLoop = async (opts: {
           : "Ready to answer",
       reasoning: decision.reasoning,
       decision: decision.decision,
+      feedback: decision.feedback,
     };
     opts.writeMessageAnnotation({
       type: "NEW_ACTION",

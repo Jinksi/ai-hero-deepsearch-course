@@ -39,6 +39,11 @@ export class SystemContext {
     country?: string;
   };
 
+  /**
+   * The most recent feedback from the decision evaluator
+   */
+  private mostRecentFeedback?: string;
+
   constructor(
     messages: Message[],
     userLocation?: {
@@ -62,6 +67,14 @@ export class SystemContext {
 
   reportSearch(search: SearchHistoryEntry) {
     this.searchHistory.push(search);
+  }
+
+  updateFeedback(feedback: string) {
+    this.mostRecentFeedback = feedback;
+  }
+
+  getMostRecentFeedback(): string {
+    return this.mostRecentFeedback ?? "";
   }
 
   getSearchHistory(): string {

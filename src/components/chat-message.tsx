@@ -106,6 +106,12 @@ const ReasoningSteps = ({
                         <div className="text-sm italic text-gray-400 mb-2">
                           <Markdown>{annotation.action.reasoning}</Markdown>
                         </div>
+                        {annotation.action.feedback && (
+                          <div className="text-sm text-gray-400 mb-3 p-2 bg-gray-700/50 rounded">
+                            <div className="font-semibold text-gray-300 mb-1">Evaluator Feedback:</div>
+                            <Markdown>{annotation.action.feedback}</Markdown>
+                          </div>
+                        )}
                         <div className="text-sm text-gray-400">
                           <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                             annotation.action.decision === "continue" 
