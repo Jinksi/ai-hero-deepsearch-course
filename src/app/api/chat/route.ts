@@ -135,7 +135,10 @@ export async function POST(request: Request) {
       // Start generating chat title in parallel for new chats
       let titlePromise: Promise<string>;
       if (isNewChat) {
-        titlePromise = generateChatTitle(messages);
+        titlePromise = generateChatTitle({
+          messages,
+          langfuseTraceId: trace.id,
+        });
       } else {
         titlePromise = Promise.resolve("");
       }

@@ -15,9 +15,13 @@ export function isNewChatCreated(data: unknown): data is {
   );
 }
 
-export const generateChatTitle = async (
-  messages: Message[],
-): Promise<string> => {
+export const generateChatTitle = async ({
+  messages,
+  langfuseTraceId,
+}: {
+  messages: Message[];
+  langfuseTraceId?: string;
+}): Promise<string> => {
   const { text } = await generateText({
     model: titleGenerationModel,
     system: `You are a chat title generator.
@@ -28,6 +32,16 @@ The title should be in the same language as the chat history.`,
     prompt: `Here is the chat history:
 
 ${messages.map((m) => m.content).join("\n")}`,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "generate-chat-title",
+          metadata: {
+            langfuseTraceId: langfuseTraceId,
+            langfuseUpdateParent: true,
+          },
+        }
+      : { isEnabled: false },
   });
 
   return text;
