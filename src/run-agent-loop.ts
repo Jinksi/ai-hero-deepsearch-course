@@ -157,14 +157,15 @@ const handleRefusedRequest = (
   langfuseTraceId?: string,
 ): StreamTextResult<Record<string, never>, string> => {
   console.log("🚫 Request refused by guardrail system:", reason);
-  
-  const refusalMessage = reason 
+
+  const refusalMessage = reason
     ? `I cannot process this request: ${reason}. Please ask something else I can help you with.`
     : "I cannot process this request as it may violate safety guidelines. Please ask something else I can help you with.";
 
   return streamText({
     model,
-    system: "You are a helpful assistant that must refuse certain requests for safety reasons.",
+    system:
+      "You are a helpful assistant that must refuse certain requests for safety reasons.",
     prompt: refusalMessage,
     onFinish,
     experimental_telemetry: langfuseTraceId
@@ -173,7 +174,7 @@ const handleRefusedRequest = (
           functionId: "guardrail-refusal-response",
           metadata: {
             langfuseTraceId: langfuseTraceId,
-            langfuseUpdateParent: false,
+            langfuseUpdateParent: true,
             refusalReason: reason ?? "unspecified",
           },
         }
@@ -205,11 +206,18 @@ export const runAgentLoop = async (opts: {
     const safetyCheck = await checkIsSafe(ctx, opts.langfuseTraceId);
     if (safetyCheck.classification === "refuse") {
       console.log("🚫 Request blocked by guardrail:", safetyCheck.reason);
-      return handleRefusedRequest(safetyCheck.reason, opts.onFinish, opts.langfuseTraceId);
+      return handleRefusedRequest(
+        safetyCheck.reason,
+        opts.onFinish,
+        opts.langfuseTraceId,
+      );
     }
     console.log("✅ Request passed guardrail safety check");
   } catch (error) {
-    console.error("⚠️ Guardrail check failed, allowing request to proceed:", error);
+    console.error(
+      "⚠️ Guardrail check failed, allowing request to proceed:",
+      error,
+    );
     // If guardrail check fails, we allow the request to proceed rather than blocking it
     // This ensures system availability even if the guardrail service is down
   }

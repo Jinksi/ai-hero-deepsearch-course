@@ -55,7 +55,11 @@ export interface SourcesAction {
 }
 
 // Extended action types
-export type ExtendedAction = Action | PlanAction | DecisionAction | SourcesAction;
+export type ExtendedAction =
+  | Action
+  | PlanAction
+  | DecisionAction
+  | SourcesAction;
 
 // Message annotation type for progress indicators
 export type OurMessageAnnotation = {
@@ -127,10 +131,14 @@ export const decisionSchema = z.object({
     ),
   reasoning: z
     .string()
-    .describe("The reason for this decision. Explain what information is still needed or why we're ready to answer."),
+    .describe(
+      "The reason for this decision. Explain what information is still needed or why we're ready to answer.",
+    ),
   feedback: z
     .string()
-    .describe("Detailed feedback about the current research state. Identify information gaps, quality issues, or what specific information still needs to be found. This feedback will guide the next search queries."),
+    .describe(
+      "Detailed feedback about the current research state. Identify information gaps, quality issues, or what specific information still needs to be found. This feedback will guide the next search queries.",
+    ),
 });
 
 export async function streamFromDeepSearch(opts: {
@@ -351,12 +359,16 @@ Here is what has been done so far:
 
 ${context.getSearchHistory()}
 
-${context.getMostRecentFeedback() ? `
+${
+  context.getMostRecentFeedback()
+    ? `
 Previous evaluator feedback:
 ${context.getMostRecentFeedback()}
 
 Use this feedback to guide your research planning. Focus on the specific information gaps and quality issues identified above.
-` : ""}
+`
+    : ""
+}
 
 Create a research plan and generate search queries to help answer the user's question.`,
   });
@@ -370,7 +382,11 @@ export const getDecision = async ({
 }: {
   context: SystemContext;
   langfuseTraceId?: string;
-}): Promise<{ decision: "continue" | "answer"; reasoning: string; feedback: string }> => {
+}): Promise<{
+  decision: "continue" | "answer";
+  reasoning: string;
+  feedback: string;
+}> => {
   console.log("🤔 getDecision called, step:", context.step);
 
   // Get current date and time for date-aware responses
