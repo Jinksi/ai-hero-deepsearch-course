@@ -17,6 +17,7 @@ import { SystemContext } from "~/system-context";
 
 import { answerQuestion } from "./answer-question";
 import { checkIsSafe } from "./guardrail";
+import { checkIfQuestionNeedsClarification, handleClarificationRequest } from "./clarification";
 import { model } from "~/models";
 
 // Types for scrape results (used internally by searchAndScrape)
@@ -220,6 +221,35 @@ export const runAgentLoop = async (opts: {
     );
     // If guardrail check fails, we allow the request to proceed rather than blocking it
     // This ensures system availability even if the guardrail service is down
+  }
+
+  // Clarification check: Determine if the question needs clarification
+  console.log("❓ Running clarification check");
+  try {
+    const clarificationCheck = await checkIfQuestionNeedsClarification(
+      ctx,
+      opts.langfuseTraceId,
+    );
+    if (clarificationCheck.needsClarification) {
+      console.log(
+        "❓ Question needs clarification:",
+        clarificationCheck.reason,
+      );
+      return handleClarificationRequest(
+        ctx,
+        clarificationCheck.reason ?? "The question needs clarification",
+        opts.onFinish,
+        opts.langfuseTraceId,
+      );
+    }
+    console.log("✅ Question is clear, proceeding with search");
+  } catch (error) {
+    console.error(
+      "⚠️ Clarification check failed, allowing request to proceed:",
+      error,
+    );
+    // If clarification check fails, we allow the request to proceed rather than blocking it
+    // This ensures system availability even if the clarification service is down
   }
 
   // A loop that continues until we have an answer
