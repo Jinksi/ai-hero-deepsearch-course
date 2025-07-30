@@ -1,6 +1,7 @@
-import { streamText, type StreamTextResult } from "ai";
+import { smoothStream, streamText, type StreamTextResult } from "ai";
 import { model } from "~/models";
 import type { SystemContext } from "~/system-context";
+import { markdownJoinerTransform } from "~/markdown-transform";
 
 export const answerQuestion = (
   context: SystemContext,
@@ -62,6 +63,13 @@ Please provide your answer now:`;
     system: systemPrompt,
     prompt: prompt,
     onFinish: options.onFinish,
+    experimental_transform: [
+      markdownJoinerTransform(),
+      smoothStream({
+        delayInMs: 20,
+        chunking: "line",
+      }),
+    ],
     experimental_telemetry: options.langfuseTraceId
       ? {
           isEnabled: true,
