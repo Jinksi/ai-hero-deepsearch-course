@@ -1,4 +1,5 @@
-import type { StreamTextResult, Message, streamText } from "ai";
+import type { StreamTextResult, Message } from "ai";
+import { streamText } from "ai";
 import {
   queryRewriter,
   getDecision,
@@ -15,6 +16,8 @@ import { summarizeURLs } from "~/summarize-url";
 import { SystemContext } from "~/system-context";
 
 import { answerQuestion } from "./answer-question";
+import { checkIsSafe } from "./guardrail";
+import { model } from "~/models";
 
 // Types for scrape results (used internally by searchAndScrape)
 interface ScrapePageResult {
@@ -147,6 +150,37 @@ const scrapeUrl = async (urls: string[]): Promise<ScrapeResult> => {
   }
 };
 
+// Function to handle refused requests
+const handleRefusedRequest = (
+  reason?: string,
+  onFinish?: Parameters<typeof streamText>[0]["onFinish"],
+  langfuseTraceId?: string,
+): StreamTextResult<Record<string, never>, string> => {
+  console.log("🚫 Request refused by guardrail system:", reason);
+  
+  const refusalMessage = reason 
+    ? `I cannot process this request: ${reason}. Please ask something else I can help you with.`
+    : "I cannot process this request as it may violate safety guidelines. Please ask something else I can help you with.";
+
+  return streamText({
+    model,
+    system: "You are a helpful assistant that must refuse certain requests for safety reasons.",
+    prompt: refusalMessage,
+    onFinish,
+    experimental_telemetry: langfuseTraceId
+      ? {
+          isEnabled: true,
+          functionId: "guardrail-refusal-response",
+          metadata: {
+            langfuseTraceId: langfuseTraceId,
+            langfuseUpdateParent: false,
+            refusalReason: reason ?? "unspecified",
+          },
+        }
+      : { isEnabled: false },
+  });
+};
+
 // Main agent loop implementation
 export const runAgentLoop = async (opts: {
   messages: Message[];
@@ -164,6 +198,21 @@ export const runAgentLoop = async (opts: {
 
   // A persistent container for the state of our system
   const ctx = new SystemContext(opts.messages, opts.userLocation);
+
+  // Guardrail check: Ensure the request is safe to process
+  console.log("🛡️ Running guardrail safety check");
+  try {
+    const safetyCheck = await checkIsSafe(ctx, opts.langfuseTraceId);
+    if (safetyCheck.classification === "refuse") {
+      console.log("🚫 Request blocked by guardrail:", safetyCheck.reason);
+      return handleRefusedRequest(safetyCheck.reason, opts.onFinish, opts.langfuseTraceId);
+    }
+    console.log("✅ Request passed guardrail safety check");
+  } catch (error) {
+    console.error("⚠️ Guardrail check failed, allowing request to proceed:", error);
+    // If guardrail check fails, we allow the request to proceed rather than blocking it
+    // This ensures system availability even if the guardrail service is down
+  }
 
   // A loop that continues until we have an answer
   // or we've taken 10 actions
