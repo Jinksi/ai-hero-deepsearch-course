@@ -9,6 +9,7 @@ export const answerQuestion = (
     isFinal: boolean;
     langfuseTraceId?: string;
     onFinish: Parameters<typeof streamText>[0]["onFinish"];
+    writeMessageAnnotation?: (annotation: any) => void;
   },
 ): StreamTextResult<Record<string, never>, string> => {
   console.log("📝 answerQuestion called, isFinal:", options.isFinal);
@@ -58,7 +59,7 @@ Please provide your answer now:`;
 
   console.log("🎨 Starting streamText for answer generation");
 
-  return streamText({
+  const result = streamText({
     model,
     system: systemPrompt,
     prompt: prompt,
@@ -83,4 +84,24 @@ Please provide your answer now:`;
         }
       : { isEnabled: false },
   });
+
+  // Report usage asynchronously for streamText
+  result.usage.then((usage) => {
+    context.reportUsage("answer-question", usage);
+    
+    // Send usage annotation to frontend
+    if (options.writeMessageAnnotation) {
+      const totalTokens = context.getTotalTokenUsage();
+      options.writeMessageAnnotation({
+        type: "NEW_ACTION",
+        action: {
+          type: "usage",
+          title: `Tokens: ${totalTokens.toLocaleString()}`,
+          totalTokens,
+        },
+      });
+    }
+  });
+
+  return result;
 };

@@ -22,7 +22,7 @@ export const generateChatTitle = async ({
   messages: Message[];
   langfuseTraceId?: string;
 }): Promise<string> => {
-  const { text } = await generateText({
+  const result = await generateText({
     model: titleGenerationModel,
     system: `You are a chat title generator.
 You will be given a chat history, and you will need to generate a title for the chat.
@@ -44,5 +44,8 @@ ${messages.map((m) => m.content).join("\n")}`,
       : { isEnabled: false },
   });
 
-  return text;
+  // Note: This function doesn't have access to SystemContext, so usage tracking would need to be handled
+  // at a higher level if we wanted to track title generation usage
+
+  return result.text;
 };

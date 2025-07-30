@@ -8,6 +8,7 @@ import {
   type DecisionAction,
   type SourcesAction,
   type SearchAction,
+  type UsageAction,
 } from "~/deep-search";
 import { env } from "~/env";
 import { bulkCrawlWebsites } from "~/scraper";
@@ -163,7 +164,7 @@ const handleRefusedRequest = (
     ? `I cannot process this request: ${reason}. Please ask something else I can help you with.`
     : "I cannot process this request as it may violate safety guidelines. Please ask something else I can help you with.";
 
-  return streamText({
+  const result = streamText({
     model,
     system:
       "You are a helpful assistant that must refuse certain requests for safety reasons.",
@@ -181,6 +182,11 @@ const handleRefusedRequest = (
         }
       : { isEnabled: false },
   });
+
+  // Note: This function doesn't have access to SystemContext, so usage tracking would need to be handled
+  // at a higher level if we wanted to track refusal usage
+
+  return result;
 };
 
 // Main agent loop implementation
@@ -409,6 +415,7 @@ export const runAgentLoop = async (opts: {
         isFinal: false,
         langfuseTraceId: opts.langfuseTraceId,
         onFinish: opts.onFinish,
+        writeMessageAnnotation: opts.writeMessageAnnotation,
       });
     }
 
@@ -423,5 +430,6 @@ export const runAgentLoop = async (opts: {
     isFinal: true,
     langfuseTraceId: opts.langfuseTraceId,
     onFinish: opts.onFinish,
+    writeMessageAnnotation: opts.writeMessageAnnotation,
   });
 };

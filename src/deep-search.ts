@@ -54,12 +54,19 @@ export interface SourcesAction {
   }[];
 }
 
+export interface UsageAction {
+  type: "usage";
+  title: string;
+  totalTokens: number;
+}
+
 // Extended action types
 export type ExtendedAction =
   | Action
   | PlanAction
   | DecisionAction
-  | SourcesAction;
+  | SourcesAction
+  | UsageAction;
 
 // Message annotation type for progress indicators
 export type OurMessageAnnotation = {
@@ -282,6 +289,9 @@ ${context.getSearchHistory()}
 Choose the next action to take to help answer the user's question.`,
   });
 
+  // Report usage synchronously for generateObject
+  context.reportUsage("get-next-action", result.usage);
+
   return result.object;
 };
 
@@ -372,6 +382,9 @@ Use this feedback to guide your research planning. Focus on the specific informa
 
 Create a research plan and generate search queries to help answer the user's question.`,
   });
+
+  // Report usage synchronously for generateObject
+  context.reportUsage("query-rewriter", result.usage);
 
   return result.object;
 };
@@ -464,6 +477,9 @@ ${context.getSearchHistory()}
 
 Based on the information gathered so far, decide whether to continue searching or answer the question, and provide detailed feedback about the current research state.`,
   });
+
+  // Report usage synchronously for generateObject
+  context.reportUsage("get-decision", result.usage);
 
   return result.object;
 };

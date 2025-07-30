@@ -187,6 +187,13 @@ const ReasoningSteps = ({
                         </div>
                       </div>
                     )}
+                    {annotation.action.type === "usage" && (
+                      <div className="text-sm text-gray-400">
+                        <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-gray-500/20 text-gray-300">
+                          Total tokens used: {annotation.action.totalTokens.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -266,6 +273,9 @@ export const ChatMessage = ({ parts, role, userName, annotations }: ChatMessageP
   // Defensive check: ensure parts is always an array
   const safeParts = Array.isArray(parts) ? parts : [];
 
+  // Find usage annotation
+  const usageAnnotation = annotations.find(annotation => annotation.action.type === "usage") as { action: { type: "usage"; totalTokens: number } } | undefined;
+
   return (
     <div className="mb-6">
       <div
@@ -290,6 +300,15 @@ export const ChatMessage = ({ parts, role, userName, annotations }: ChatMessageP
               return null;
           }
         })}
+
+        {/* Display token usage at the bottom for AI messages */}
+        {isAI && usageAnnotation && (
+          <div className="mt-4 pt-2 border-t border-gray-700">
+            <span className="text-xs text-gray-500">
+              Tokens: {usageAnnotation.action.totalTokens.toLocaleString()}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

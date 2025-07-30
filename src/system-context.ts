@@ -13,6 +13,15 @@ type SearchHistoryEntry = {
   results: SearchResult[];
 };
 
+type TokenUsageEntry = {
+  source: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+};
+
 export class SystemContext {
   /**
    * The current step in the loop
@@ -23,6 +32,11 @@ export class SystemContext {
    * The history of all searches performed, including scraped content
    */
   private searchHistory: SearchHistoryEntry[] = [];
+
+  /**
+   * The history of all token usage for this request
+   */
+  private tokenUsageHistory: TokenUsageEntry[] = [];
 
   /**
    * The full message array including all messages
@@ -67,6 +81,17 @@ export class SystemContext {
 
   reportSearch(search: SearchHistoryEntry) {
     this.searchHistory.push(search);
+  }
+
+  reportUsage(
+    source: string,
+    usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    },
+  ) {
+    this.tokenUsageHistory.push({ source, usage });
   }
 
   updateFeedback(feedback: string) {
@@ -136,5 +161,12 @@ export class SystemContext {
 - lon: ${longitude}
 - city: ${city}
 - country: ${country}`;
+  }
+
+  getTotalTokenUsage(): number {
+    return this.tokenUsageHistory.reduce(
+      (total, entry) => total + entry.usage.totalTokens,
+      0,
+    );
   }
 }

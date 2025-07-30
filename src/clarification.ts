@@ -114,7 +114,7 @@ export const checkIfQuestionNeedsClarification = async (
 }> => {
   const messageHistory: string = ctx.getMessageHistory();
 
-  const { object } = await generateObject({
+  const result = await generateObject({
     model: clarificationModel,
     schema: z.object({
       needsClarification: z.boolean(),
@@ -137,7 +137,10 @@ export const checkIfQuestionNeedsClarification = async (
       : { isEnabled: false },
   });
 
-  return object;
+  // Report usage synchronously for generateObject
+  ctx.reportUsage("clarification-check", result.usage);
+
+  return result.object;
 };
 
 // Function to handle clarification requests
@@ -149,7 +152,7 @@ export const handleClarificationRequest = (
 ): StreamTextResult<Record<string, never>, string> => {
   console.log("❓ Generating clarification request:", reason);
 
-  return streamText({
+  const result = streamText({
     model: clarificationModel,
     system: `You are a clarification agent for a DeepSearch system. Your job is to ask the user for clarification on their question.
 
@@ -180,4 +183,11 @@ Please reply to the user with a clarification request.`,
         }
       : { isEnabled: false },
   });
+
+  // Report usage asynchronously for streamText
+  result.usage.then((usage) => {
+    ctx.reportUsage("clarification-request", usage);
+  });
+
+  return result;
 };

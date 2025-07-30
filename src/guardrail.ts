@@ -152,7 +152,7 @@ export const checkIsSafe = async (
 }> => {
   const messageHistory: string = ctx.getMessageHistory();
 
-  const { object } = await generateObject({
+  const result = await generateObject({
     model: guardrailModel,
     schema: z.object({
       classification: z.enum(["allow", "refuse"]),
@@ -172,5 +172,8 @@ export const checkIsSafe = async (
       : { isEnabled: false },
   });
 
-  return object;
+  // Report usage synchronously for generateObject
+  ctx.reportUsage("guardrail-check", result.usage);
+
+  return result.object;
 };
